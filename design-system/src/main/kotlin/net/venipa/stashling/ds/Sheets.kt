@@ -13,8 +13,10 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -124,7 +126,8 @@ fun ActionSheet(
 ) = AppBottomSheet(onDismiss) {
     Column(Modifier.padding(horizontal = Space.L).padding(bottom = Space.L).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(Space.S)) {
         title?.let { Text(it, style = sheetTitle, maxLines = 2, overflow = TextOverflow.Ellipsis) }
-        Column(Modifier.fillMaxWidth().clip(concentricShape(SheetRadius, Space.L)), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+        // Long lists (sub-studios) scroll inside the sheet; the title stays.
+        Column(Modifier.fillMaxWidth().weight(1f, fill = false).clip(concentricShape(SheetRadius, Space.L)).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             actions.forEach { a ->
                 val color = if (a.destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
                 ListItem(

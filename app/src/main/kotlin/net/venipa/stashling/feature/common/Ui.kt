@@ -449,11 +449,13 @@ fun <T> PagedGrid(
     spacing: Dp = Space.M,
     header: (LazyGridScope.() -> Unit)? = null,
     onRefresh: (() -> Unit)? = null,
+    /** false: only [header] (a detail page's other tab); paging pauses. */
+    showItems: Boolean = true,
     skeleton: @Composable (index: Int, count: Int) -> Unit = { _, _ -> PosterSkeleton(2f / 3f) },
     item: @Composable (index: Int, item: T) -> Unit,
 ) {
-    LoadMoreEffect(gridState, state.hasNext && !state.loading && state.error == null, onMore)
-    val firstLoad = state.items.isEmpty() && state.error == null && (state.loading || !state.started)
+    LoadMoreEffect(gridState, showItems && state.hasNext && !state.loading && state.error == null, onMore)
+    val firstLoad = showItems && state.items.isEmpty() && state.error == null && (state.loading || !state.started)
     val grid: @Composable () -> Unit = {
         LazyVerticalGrid(
             columns,
@@ -464,6 +466,7 @@ fun <T> PagedGrid(
             horizontalArrangement = Arrangement.spacedBy(spacing),
         ) {
             header?.invoke(this)
+            if (!showItems) return@LazyVerticalGrid
             if (state.loadingPrevious) fullSpan("previous") { PagingFooter(true, false, onRetry) }
             if (firstLoad) items(SKELETON_COUNT, key = { "skeleton$it" }) { skeleton(it, SKELETON_COUNT) }
             itemsIndexed(state.items, key = { _, it -> key(it) }) { i, it -> item(i, it) }
@@ -502,10 +505,11 @@ fun ScenesGrid(
     gridState: LazyGridState = rememberLazyGridState(),
     header: (LazyGridScope.() -> Unit)? = null,
     onRefresh: (() -> Unit)? = null,
+    showItems: Boolean = true,
 ) {
     // One collector per grid for the Whisparr tile badges (stashId -> state).
     val badges by LocalAppContainer.current.whisparrIndex.collectAsState()
-    ScenesPagedGrid(state, mode, contentPadding, onMore, onRetry, onOpen, modifier, gridState, header, onRefresh, badges)
+    ScenesPagedGrid(state, mode, contentPadding, onMore, onRetry, onOpen, modifier, gridState, header, onRefresh, badges, showItems)
 }
 
 @Composable
@@ -521,6 +525,7 @@ private fun ScenesPagedGrid(
     header: (LazyGridScope.() -> Unit)?,
     onRefresh: (() -> Unit)?,
     badges: Map<String, LibraryBadge>,
+    showItems: Boolean,
 ) = PagedGrid(
     state,
     { it.id },
@@ -534,6 +539,7 @@ private fun ScenesPagedGrid(
     spacing = if (mode == ListMode.CARDS) Space.M else 2.dp,
     header = header,
     onRefresh = onRefresh,
+    showItems = showItems,
     skeleton = { i, n -> if (mode == ListMode.CARDS) SceneCardSkeleton() else SceneRowSkeleton(i, n) },
 ) { i, s ->
     val shape = if (mode == ListMode.CARDS) RoundedCornerShape(CardOuter) else groupShape(i, state.items.size)

@@ -112,6 +112,21 @@
     <string name="detail_parent_studio">Parent studio</string>
     <string name="detail_sub_studios">Sub-studios</string>
     <string name="detail_category">Category</string>
+    <string name="detail_more">More</string>
+    <string name="detail_less">Less</string>
+    <string name="detail_tags_more">+%1$d more</string>
+    <string name="detail_production">Production info</string>
+    <string name="detail_links_n">%1$d links</string>
+    <string name="detail_sub_studios_n">%1$d sub-studios</string>
+    <string name="detail_about">About</string>
+    <string name="detail_age">Age</string>
+    <string name="detail_image_n">Image %1$d of %2$d</string>
+    <string name="detail_cup">Cup size</string>
+    <string name="detail_birth_year">Birth year</string>
+    <string name="detail_career_start">Career start</string>
+    <string name="detail_find_like">Find performers with this %1$s</string>
+    <string name="browse_trait_any">%1$s: any</string>
+    <string name="browse_trait_remove">Remove filter %1$s</string>
 
     <!-- gallery -->
     <string name="gallery_counter">%1$d / %2$d</string>

@@ -114,4 +114,15 @@ class StashDbClientTest {
             }
         assertNull(api.scene("gone"))
     }
+
+    @Test
+    fun `performer traits encode as EQUALS criteria, enums bare, body mods as NOT_NULL`() {
+        val input = with(StashDbClient) {
+            PerformerFilter(traits = listOf(PerformerTrait(TraitKey.HEIGHT, "170"), PerformerTrait(TraitKey.COUNTRY, "US"), PerformerTrait(TraitKey.ETHNICITY, "ASIAN"), PerformerTrait(TraitKey.TATTOOS, ""))).toInput()
+        }
+        assertEquals("""{"value":170,"modifier":"EQUALS"}""", input["height"].toString())
+        assertEquals("""{"value":"US","modifier":"EQUALS"}""", input["country"].toString())
+        assertEquals("\"ASIAN\"", input["ethnicity"].toString())
+        assertEquals("""{"modifier":"NOT_NULL"}""", input["tattoos"].toString())
+    }
 }

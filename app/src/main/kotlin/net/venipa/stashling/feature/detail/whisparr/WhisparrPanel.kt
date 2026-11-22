@@ -2,6 +2,7 @@ package net.venipa.stashling.feature.detail.whisparr
 
 import android.text.format.DateUtils
 import android.text.format.Formatter
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -10,22 +11,30 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -36,8 +45,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
@@ -53,13 +65,18 @@ import net.venipa.stashling.core.whisparr.QueueItem
 import net.venipa.stashling.core.whisparr.Release
 import net.venipa.stashling.core.whisparr.WhisparrScene
 import net.venipa.stashling.ds.ActionButton
+import net.venipa.stashling.ds.ActionSheet
 import net.venipa.stashling.ds.AppBottomSheet
 import net.venipa.stashling.ds.CardTone
 import net.venipa.stashling.ds.EmptyState
+import net.venipa.stashling.ds.GlassCorner
+import net.venipa.stashling.ds.GlassRole
+import net.venipa.stashling.ds.GlassState
 import net.venipa.stashling.ds.HeroCardRadius
 import net.venipa.stashling.ds.LocalStashHaptics
 import net.venipa.stashling.ds.LongOperationCard
 import net.venipa.stashling.ds.PillTone
+import net.venipa.stashling.ds.SheetAction
 import net.venipa.stashling.ds.SheetRadius
 import net.venipa.stashling.ds.SkeletonBox
 import net.venipa.stashling.ds.Space
@@ -69,17 +86,26 @@ import net.venipa.stashling.ds.StatusPill
 import net.venipa.stashling.ds.TonalCard
 import net.venipa.stashling.ds.concentric
 import net.venipa.stashling.ds.concentricShape
+import net.venipa.stashling.ds.glass
 import net.venipa.stashling.ds.groupItemShape
 import net.venipa.stashling.ds.sheetTitle
 import net.venipa.stashling.feature.common.LocalNetworkNotice
 import net.venipa.stashling.feature.common.localNetworkMissing
 import net.venipa.stashling.feature.common.openLink
 
-/** Inline tonal card under the scene hero. Renders nothing while Whisparr is not connected. */
+/**
+ * Whisparr as a floating bar in the dock's slot of the scene page. Status (and the preset chip) on the start, the
+ * primary action on the end, ⋮ for the rest; downloading shows a progress ring. Glass while it floats over imagery
+ * ([overImage]), tonal over text. Renders nothing (height 0) while Whisparr is not connected. [onHeight] reports the footprint.
+ */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
-fun WhisparrPanel(
+fun WhisparrBar(
     stashId: String,
+    glass: GlassState,
+    overImage: Boolean,
     modifier: Modifier = Modifier,
+    onHeight: (Int) -> Unit = {},
 ) {
     val container = LocalAppContainer.current
     val vm: WhisparrPanelViewModel = viewModel(key = "whisparr-$stashId") { WhisparrPanelViewModel(stashId, container) }
@@ -90,71 +116,86 @@ fun WhisparrPanel(
     val releases by vm.releases.collectAsStateWithLifecycle()
     val preset by vm.preset.collectAsStateWithLifecycle()
     var presetSheet by remember { mutableStateOf(false) }
+    var more by remember { mutableStateOf(false) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     // Polls only while visible.
     LaunchedEffect(vm, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.poll() } }
 
     val s = state
-    if (s is PanelState.Unavailable) return
-    // hero: 28dp radius, 20dp padding, so nested buttons get a concentric 8dp (a 16/16 card would leave 0).
-    TonalCard(modifier, tone = if (s is PanelState.Failed || s is PanelState.Error) CardTone.Error else CardTone.Plain, hero = true) {
-        Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.whisparr_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-            Pill(s)
-            val slug = s.sceneOrNull()?.titleSlug
-            val base = container.secrets.whisparr.collectAsStateWithLifecycle().value?.baseUrl
-            if (slug != null && base != null) {
-                val context = LocalContext.current
-                IconButton({ openLink(context, "$base/movie/$slug") }) { Icon(StashlingIcons.OpenExternal, stringResource(R.string.whisparr_open)) }
-            }
-        }
+    if (s is PanelState.Unavailable) {
+        SideEffect { onHeight(0) }
+        return
+    }
+    val context = LocalContext.current
+    val base = container.secrets.whisparr.collectAsStateWithLifecycle().value?.baseUrl
+    val slug = s.sceneOrNull()?.titleSlug
+    val open = if (slug != null && base != null) SheetAction(stringResource(R.string.whisparr_open), StashlingIcons.OpenExternal) { openLink(context, "$base/movie/$slug") } else null
+    val add = SheetAction(stringResource(R.string.whisparr_add), StashlingIcons.Add) { vm.add(AddMode.REQUEST) }
+    val addSearch = SheetAction(stringResource(R.string.whisparr_add_and_search), StashlingIcons.Search) { vm.add(AddMode.QUEUE) }
+    val interactive = stringResource(R.string.whisparr_interactive_search)
+    val search = stringResource(R.string.whisparr_search)
+    val (primary, rest) =
         when (s) {
-            PanelState.Unavailable -> Unit
+            // Settings "search on add" decides which add is the primary; the other one sits in the overflow.
+            is PanelState.NotInLibrary -> (if (searchOnAdd) addSearch else add) to listOf(if (searchOnAdd) add else addSearch, SheetAction(interactive, StashlingIcons.Search) { vm.add(AddMode.PICK) })
 
-            PanelState.Loading -> SkeletonBox(Modifier.fillMaxWidth().height(56.dp), concentricShape(HeroCardRadius, 20.dp))
+            is PanelState.Missing ->
+                SheetAction(search, StashlingIcons.Search) { vm.search(s.scene) } to
+                    listOf(
+                        SheetAction(interactive, StashlingIcons.Search) { vm.openReleases(s.scene) },
+                        if (s.scene.monitored) {
+                            SheetAction(stringResource(R.string.whisparr_unmonitor), StashlingIcons.Visibility) { vm.setMonitored(s.scene, false) }
+                        } else {
+                            SheetAction(stringResource(R.string.whisparr_monitor), StashlingIcons.Visibility) { vm.setMonitored(s.scene, true) }
+                        },
+                    )
 
-            is PanelState.NotInLibrary -> {
-                if (s.excluded) Text(stringResource(R.string.whisparr_excluded), style = MaterialTheme.typography.bodyMedium)
-                preset?.let { PresetLine(it, enabled = !busy) { presetSheet = true } }
-                val add = PanelButton(stringResource(R.string.whisparr_add), { vm.add(AddMode.REQUEST) }, tonal = searchOnAdd)
-                val addSearch = PanelButton(stringResource(R.string.whisparr_add_and_search), { vm.add(AddMode.QUEUE) }, tonal = !searchOnAdd, icon = StashlingIcons.Search)
-                val pick = PanelButton(stringResource(R.string.whisparr_interactive_search), { vm.add(AddMode.PICK) }, tonal = true)
-                // Settings "search on add" decides which one is the filled primary; both always shown.
-                ButtonGroup(if (searchOnAdd) listOf(addSearch, add, pick) else listOf(add, addSearch, pick), enabled = !busy)
+            is PanelState.Failed -> SheetAction(search, StashlingIcons.Search) { vm.search(s.scene) } to listOf(SheetAction(interactive, StashlingIcons.Search) { vm.openReleases(s.scene) })
+
+            is PanelState.Error -> SheetAction(stringResource(R.string.whisparr_retry), StashlingIcons.Search, onClick = vm::retry) to emptyList()
+
+            else -> null to emptyList()
+        }
+    val overflow = rest + listOfNotNull(open)
+    val haptic = LocalStashHaptics.current
+    val shape = RoundedCornerShape(GlassCorner)
+    val surface = if (overImage) Modifier.glass(glass, GlassRole.Dock) else Modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+    Column(
+        modifier
+            .onSizeChanged { onHeight(it.height) }
+            .fillMaxWidth()
+            .navigationBarsPadding()
+            .padding(horizontal = Space.L)
+            .padding(bottom = Space.L),
+        verticalArrangement = Arrangement.spacedBy(Space.S),
+    ) {
+        if (s is PanelState.Error && LocalContext.current.localNetworkMissing()) LocalNetworkNotice()
+        Row(
+            Modifier.fillMaxWidth().then(surface).padding(BarInset).heightIn(min = 56.dp),
+            horizontalArrangement = Arrangement.spacedBy(Space.S),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Column(Modifier.weight(1f).padding(start = Space.S), verticalArrangement = Arrangement.spacedBy(Space.Xs)) { BarStatus(s, noRelease, preset, busy) { presetSheet = true } }
+            primary?.let { p ->
+                Button(
+                    {
+                        haptic.confirm()
+                        p.onClick()
+                    },
+                    Modifier.heightIn(min = 56.dp),
+                    enabled = !busy,
+                    shape = concentricShape(GlassCorner, BarInset),
+                ) {
+                    if (busy) LoadingIndicator(Modifier.size(24.dp), LocalContentColor.current) else Icon(p.icon, null, Modifier.size(20.dp))
+                    Text(p.label, Modifier.padding(start = Space.S), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+                }
             }
-
-            is PanelState.Missing -> {
-                if (noRelease) Text(stringResource(R.string.whisparr_no_release), style = MaterialTheme.typography.bodyMedium)
-                MonitoredRow(s.scene, enabled = !busy) { vm.setMonitored(s.scene, it) }
-                SearchActions(s.scene, busy, vm)
-            }
-
-            is PanelState.Searching -> {
-                Text(stringResource(R.string.whisparr_searching_body), style = MaterialTheme.typography.bodyMedium)
-                LinearProgressIndicator(Modifier.fillMaxWidth())
-            }
-
-            is PanelState.InQueue -> QueueProgress(s.item)
-
-            is PanelState.Failed -> {
-                s.message?.let { Text(it, style = MaterialTheme.typography.bodyMedium) }
-                SearchActions(s.scene, busy, vm)
-            }
-
-            is PanelState.Downloaded -> {
-                val context = LocalContext.current
-                val file = s.scene.movieFile
-                val size = file?.size ?: s.scene.sizeOnDisk
-                val line = listOfNotNull(file?.quality?.quality?.name, size?.let { Formatter.formatShortFileSize(context, it) }).joinToString(" · ")
-                if (line.isNotEmpty()) Text(line, style = MaterialTheme.typography.bodyMedium)
-            }
-
-            is PanelState.Error -> {
-                if (LocalContext.current.localNetworkMissing()) LocalNetworkNotice() else Text(s.message.ifBlank { stringResource(R.string.whisparr_error) }, style = MaterialTheme.typography.bodyMedium)
-                ButtonGroup(listOf(PanelButton(stringResource(R.string.whisparr_retry), vm::retry, tonal = true)), enabled = !busy)
+            if (overflow.isNotEmpty()) {
+                IconButton({ more = true }, Modifier.size(48.dp)) { Icon(StashlingIcons.More, stringResource(R.string.whisparr_more)) }
             }
         }
     }
+    if (more) ActionSheet(stringResource(R.string.whisparr_title), overflow) { more = false }
     releases?.let { ReleaseSheet(it, onGrab = vm::grab, onDismiss = vm::closeReleases) }
     preset?.takeIf { presetSheet }?.let { choice ->
         PresetSheet(choice, onPick = {
@@ -164,28 +205,92 @@ fun WhisparrPanel(
     }
 }
 
-/** 5A: "Preset: X ▾" chip and why it applies; tapping picks another preset for this add only. */
+/** Same 8dp inset as the dock's tab row, so the button's radius is concentric with the 28dp bar. */
+private val BarInset = 8.dp
+
+/** Start side of the bar: a ring while downloading, otherwise the status pill and one supporting line (preset chip, file, reason). */
 @Composable
-private fun PresetLine(
+private fun BarStatus(
+    s: PanelState,
+    noRelease: Boolean,
+    preset: PresetChoice?,
+    busy: Boolean,
+    onPreset: () -> Unit,
+) {
+    val context = LocalContext.current
+    val small = MaterialTheme.typography.bodySmall
+    val dim = MaterialTheme.colorScheme.onSurfaceVariant
+    when (s) {
+        PanelState.Loading -> SkeletonBox(Modifier.size(120.dp, 24.dp), MaterialTheme.shapes.small)
+
+        is PanelState.InQueue -> Row(horizontalArrangement = Arrangement.spacedBy(Space.M), verticalAlignment = Alignment.CenterVertically) {
+            val item = s.item
+            CircularProgressIndicator({ item.progress.toFloat().coerceIn(0f, 1f) }, Modifier.size(32.dp))
+            Column {
+                Text(queueLabel(item), style = MaterialTheme.typography.labelLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                val done = (item.size - item.sizeleft).toLong().coerceAtLeast(0)
+                Text(
+                    stringResource(R.string.whisparr_progress, (item.progress * 100).toInt(), Formatter.formatShortFileSize(context, done), Formatter.formatShortFileSize(context, item.size.toLong())),
+                    style = small,
+                    color = dim,
+                    maxLines = 1,
+                )
+            }
+        }
+
+        is PanelState.Searching -> Row(horizontalArrangement = Arrangement.spacedBy(Space.M), verticalAlignment = Alignment.CenterVertically) {
+            CircularProgressIndicator(Modifier.size(24.dp))
+            Text(stringResource(R.string.whisparr_searching), style = MaterialTheme.typography.labelLarge)
+        }
+
+        else -> {
+            Pill(s)
+            val line =
+                when (s) {
+                    is PanelState.NotInLibrary -> if (s.excluded) stringResource(R.string.whisparr_excluded) else null
+
+                    is PanelState.Missing -> if (noRelease) stringResource(R.string.whisparr_no_release) else null
+
+                    is PanelState.Failed -> s.message
+
+                    is PanelState.Error -> s.message.ifBlank { null }
+
+                    is PanelState.Downloaded -> {
+                        val file = s.scene.movieFile
+                        val size = file?.size ?: s.scene.sizeOnDisk
+                        listOfNotNull(file?.quality?.quality?.name, size?.let { Formatter.formatShortFileSize(context, it) }).joinToString(" · ").ifEmpty { null }
+                    }
+
+                    else -> null
+                }
+            line?.let { Text(it, style = small, color = dim, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+            if (s is PanelState.NotInLibrary) preset?.let { PresetChip(it, enabled = !busy, onClick = onPreset) }
+        }
+    }
+}
+
+/** 5A: "Preset: X ▾" chip; the reason it applies is its accessibility label. Tapping picks another preset for this add only. */
+@Composable
+private fun PresetChip(
     choice: PresetChoice,
     enabled: Boolean,
     onClick: () -> Unit,
-) = Column {
-    AssistChip(
-        onClick,
-        { Text(stringResource(R.string.whisparr_preset_chip, choice.preset.name), maxLines = 1, overflow = TextOverflow.Ellipsis) },
-        enabled = enabled,
-        // 20dp in from the 28dp hero corner.
-        shape = concentricShape(HeroCardRadius, 20.dp),
-        trailingIcon = { Icon(StashlingIcons.ArrowDropDown, null, Modifier.size(AssistChipDefaults.IconSize)) },
-    )
+) {
     val reason =
         when {
             choice.overridden -> stringResource(R.string.whisparr_preset_chosen)
             choice.rule != null -> stringResource(R.string.whisparr_preset_matched, choice.rule.stashTagName)
             else -> stringResource(R.string.whisparr_preset_default)
         }
-    Text(reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+    AssistChip(
+        onClick,
+        { Text(stringResource(R.string.whisparr_preset_chip, choice.preset.name), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        Modifier.semantics { stateDescription = reason },
+        enabled = enabled,
+        // 16dp in from the 28dp bar corner (8dp inset + 8dp status padding).
+        shape = concentricShape(GlassCorner, 16.dp),
+        trailingIcon = { Icon(StashlingIcons.ArrowDropDown, null, Modifier.size(AssistChipDefaults.IconSize)) },
+    )
 }
 
 @Composable
@@ -251,56 +356,6 @@ internal fun QueueProgress(item: QueueItem) {
         }
     Text(listOfNotNull(line, eta).joinToString(" · "), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
     item.errorMessage?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
-}
-
-@Composable
-private fun MonitoredRow(
-    scene: WhisparrScene,
-    enabled: Boolean,
-    onChange: (Boolean) -> Unit,
-) = Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-    Text(stringResource(R.string.whisparr_monitored), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-    StashSwitch(scene.monitored, onChange, enabled = enabled)
-}
-
-@Composable
-private fun SearchActions(
-    scene: WhisparrScene,
-    busy: Boolean,
-    vm: WhisparrPanelViewModel,
-) {
-    ButtonGroup(
-        listOf(
-            PanelButton(stringResource(R.string.whisparr_search), { vm.search(scene) }, icon = StashlingIcons.Search),
-            PanelButton(stringResource(R.string.whisparr_interactive_search), { vm.openReleases(scene) }, tonal = true),
-        ),
-        enabled = !busy,
-    )
-}
-
-private class PanelButton(
-    val text: String,
-    val onClick: () -> Unit,
-    val tonal: Boolean = false,
-    val icon: ImageVector? = null,
-)
-
-/** Connected button stack inside the hero card: 20dp in from a 28dp corner, joins 2dp apart (concentric). */
-@Composable
-private fun ButtonGroup(
-    buttons: List<PanelButton>,
-    enabled: Boolean,
-) = Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-    // The pressed button shows the loading state while an action runs; the others stay disabled.
-    var active by remember { mutableIntStateOf(-1) }
-    val haptic = LocalStashHaptics.current
-    buttons.forEachIndexed { i, b ->
-        ActionButton(b.text, {
-            haptic.confirm()
-            active = i
-            b.onClick()
-        }, enabled = enabled || active == i, loading = !enabled && active == i, tonal = b.tonal, icon = b.icon, shape = groupItemShape(i, buttons.size, outer = concentric(HeroCardRadius, 20.dp)))
-    }
 }
 
 @Composable

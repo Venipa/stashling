@@ -140,9 +140,19 @@ data class PerformerFilter(
     val studioId: String? = null,
     val gender: String? = null,
     val favoritesOnly: Boolean = false,
+    /** "performers like this one" filters from a performer page, one per [PerformerTrait.key]. */
+    val traits: List<PerformerTrait> = emptyList(),
     val sort: PerformerSort = PerformerSort.POPULARITY,
     val direction: SortDirection = SortDirection.DESC,
 )
+
+/**
+ * One PerformerQueryInput criterion with an EQUALS match. [value] is the raw StashDB value (enum name, country code, number).
+ * Only keys the live StashDB accepted are listed (checked on the device against 422s).
+ */
+data class PerformerTrait(val key: TraitKey, val value: String)
+
+enum class TraitKey { COUNTRY, ETHNICITY, EYE_COLOR, HAIR_COLOR, HEIGHT, CUP_SIZE, BREAST_TYPE, CAREER_START, BIRTH_YEAR, TATTOOS, PIERCINGS }
 
 data class StudioFilter(
     val names: String? = null,

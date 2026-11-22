@@ -283,8 +283,42 @@ class StashDbClient(
             gender?.let { put("gender", it) }
             // false would mean "not a favorite"; the filter only narrows to favorites.
             if (favoritesOnly) put("is_favorite", true)
+            traits.forEach { t ->
+                when (t.key) {
+                    TraitKey.ETHNICITY -> put("ethnicity", t.value)
+
+                    // Body modifications: "has any" (the location text is free-form).
+                    TraitKey.TATTOOS, TraitKey.PIERCINGS -> put(t.key.field, buildJsonObject { put("modifier", "NOT_NULL") })
+
+                    else -> put(
+                        t.key.field,
+                        buildJsonObject {
+                            // Int criteria need a JSON number (put returns the previous value, so no elvis chain here).
+                            val n = t.value.toIntOrNull()
+                            if (t.key.numeric && n != null) put("value", n) else put("value", t.value)
+                            put("modifier", "EQUALS")
+                        },
+                    )
+                }
+            }
             put("sort", sort.name)
             put("direction", direction.name)
+        }
+
+        private val TraitKey.numeric get() = this == TraitKey.HEIGHT || this == TraitKey.CAREER_START || this == TraitKey.BIRTH_YEAR
+
+        private val TraitKey.field get() = when (this) {
+            TraitKey.COUNTRY -> "country"
+            TraitKey.ETHNICITY -> "ethnicity"
+            TraitKey.EYE_COLOR -> "eye_color"
+            TraitKey.HAIR_COLOR -> "hair_color"
+            TraitKey.HEIGHT -> "height"
+            TraitKey.CUP_SIZE -> "cup_size"
+            TraitKey.BREAST_TYPE -> "breast_type"
+            TraitKey.CAREER_START -> "career_start_year"
+            TraitKey.BIRTH_YEAR -> "birth_year"
+            TraitKey.TATTOOS -> "tattoos"
+            TraitKey.PIERCINGS -> "piercings"
         }
 
         internal fun StudioFilter.toInput() = buildJsonObject {

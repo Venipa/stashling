@@ -24,6 +24,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -35,6 +36,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.InputChip
+import androidx.compose.material3.InputChipDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
@@ -57,6 +60,8 @@ import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -66,11 +71,14 @@ import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.core.stash.Favorites
 import net.venipa.stashling.core.stash.NameSort
+import net.venipa.stashling.core.stash.PerformerFilter
 import net.venipa.stashling.core.stash.PerformerRef
 import net.venipa.stashling.core.stash.PerformerSort
+import net.venipa.stashling.core.stash.PerformerTrait
 import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.SortDirection
 import net.venipa.stashling.core.stash.Tag
+import net.venipa.stashling.core.stash.TraitKey
 import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.AlphabetRail
 import net.venipa.stashling.ds.AlphabetRailWidth
@@ -106,6 +114,7 @@ import net.venipa.stashling.feature.common.SceneRowSkeleton
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.collectVisible
 import net.venipa.stashling.feature.common.containerTransform
+import net.venipa.stashling.feature.common.fullSpan
 import net.venipa.stashling.feature.common.groupShape
 import net.venipa.stashling.feature.common.listPadding
 import net.venipa.stashling.feature.common.performerTransformKey
@@ -336,7 +345,13 @@ private fun Results(
             val fuzzy = q.isNotBlank() && f.performer.copy(gender = null) == BrowsePerformers
             val byName = f.performer.sort == PerformerSort.NAME && f.performer.direction == SortDirection.ASC && !fuzzy
             NameRail(vm.performers, st, byName, padding, grid, { it.name }, { indexLetter(it.name, it.aliases) }) { padding ->
-                PagedGrid(st, { it.id }, GridCells.Adaptive(150.dp), padding, vm::loadMore, vm::retry, empty, gridState = grid, onRefresh = vm::refresh) { _, p ->
+                val traits: (LazyGridScope.() -> Unit)? =
+                    if (f.performer.traits.isNotEmpty() || f.performer.gender != null) {
+                        { fullSpan("traits") { TraitChips(f.performer) { next -> vm.update { it.copy(performer = next) } } } }
+                    } else {
+                        null
+                    }
+                PagedGrid(st, { it.id }, GridCells.Adaptive(150.dp), padding, vm::loadMore, vm::retry, empty, gridState = grid, header = traits, onRefresh = vm::refresh) { _, p ->
                     val image = p.images.firstOrNull() ?: p.thumbnail
                     val menu = rememberPerformerMenu(PerformerRef(p.id, p.name, p.disambiguation, null, image), RoundedCornerShape(16.dp))
                     PosterTile(p.name, stringResource(R.string.browse_scenes_count, p.sceneCount), image?.sized(300), 2f / 3f, { onOpenPerformer(p.id) }, menu.modifier.containerTransform(performerTransformKey(p.id), RoundedCornerShape(16.dp)), onLongClick = menu.open)
@@ -643,5 +658,52 @@ private fun FilterSheet(
             }
             if (f.activeCount(kind) > 0) ActionButton(stringResource(R.string.browse_reset), { vm.reset(kind) }, tonal = true)
         }
+    }
+}
+
+/** The trait filters a performer page set, as removable chips over the performer grid. */
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun TraitChips(
+    f: PerformerFilter,
+    onRemove: (PerformerFilter) -> Unit,
+) = FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
+    @Composable
+    fun Chip(
+        label: String,
+        next: PerformerFilter,
+    ) {
+        val remove = stringResource(R.string.browse_trait_remove, label)
+        InputChip(true, { onRemove(next) }, { Text(label) }, Modifier.semantics { contentDescription = remove }, trailingIcon = { Icon(StashlingIcons.Close, null, Modifier.size(InputChipDefaults.IconSize)) })
+    }
+    f.gender?.let { Chip("${stringResource(R.string.detail_gender)}: ${it.prettyEnum()}", f.copy(gender = null)) }
+    f.traits.forEach { t -> Chip(traitLabel(t), f.copy(traits = f.traits - t)) }
+}
+
+private fun String.prettyEnum() = lowercase().replace('_', ' ').replaceFirstChar { it.uppercase() }
+
+@Composable
+private fun traitLabel(t: PerformerTrait): String {
+    val name =
+        stringResource(
+            when (t.key) {
+                TraitKey.COUNTRY -> R.string.detail_country
+                TraitKey.ETHNICITY -> R.string.detail_ethnicity
+                TraitKey.EYE_COLOR -> R.string.detail_eyes
+                TraitKey.HAIR_COLOR -> R.string.detail_hair
+                TraitKey.HEIGHT -> R.string.detail_height
+                TraitKey.CUP_SIZE -> R.string.detail_cup
+                TraitKey.BREAST_TYPE -> R.string.detail_breasts
+                TraitKey.CAREER_START -> R.string.detail_career_start
+                TraitKey.BIRTH_YEAR -> R.string.detail_birth_year
+                TraitKey.TATTOOS -> R.string.detail_tattoos
+                TraitKey.PIERCINGS -> R.string.detail_piercings
+            },
+        )
+    return when (t.key) {
+        TraitKey.TATTOOS, TraitKey.PIERCINGS -> stringResource(R.string.browse_trait_any, name)
+        TraitKey.HEIGHT -> "$name: ${t.value} cm"
+        TraitKey.ETHNICITY, TraitKey.EYE_COLOR, TraitKey.HAIR_COLOR, TraitKey.BREAST_TYPE -> "$name: ${t.value.prettyEnum()}"
+        else -> "$name: ${t.value}"
     }
 }

@@ -27,6 +27,7 @@ import net.venipa.stashling.core.stash.NameSort
 import net.venipa.stashling.core.stash.Performer
 import net.venipa.stashling.core.stash.PerformerFilter
 import net.venipa.stashling.core.stash.PerformerSort
+import net.venipa.stashling.core.stash.PerformerTrait
 import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.SceneFilter
 import net.venipa.stashling.core.stash.SortDirection
@@ -71,7 +72,7 @@ fun Filters.activeCount(kind: BrowseKind): Int = when (kind) {
         listOf(scene.sort != d.sort || scene.direction != d.direction, scene.studioIds.isNotEmpty(), scene.performerIds.isNotEmpty(), scene.tagIds.isNotEmpty(), scene.date != null, scene.favorites != null, region != Region.All)
     }
 
-    BrowseKind.Performers -> listOf(performer.sort != BrowsePerformers.sort || performer.direction != BrowsePerformers.direction, performer.favoritesOnly)
+    BrowseKind.Performers -> listOf(performer.sort != BrowsePerformers.sort || performer.direction != BrowsePerformers.direction, performer.favoritesOnly, performer.gender != null) + performer.traits.map { true }
 
     BrowseKind.Studios -> listOf(studio.sort != StudioFilter().sort || studio.direction != StudioFilter().direction, studio.favoritesOnly)
 
@@ -142,8 +143,12 @@ class BrowseViewModel(
                     text.trim(),
                     when (k) {
                         BrowseKind.Scenes -> f.scene.withRegion(f.region, jav)
-                        BrowseKind.Performers -> f.performer.copy(gender = g)
+
+                        // A gender picked from a performer page wins over the Settings gender.
+                        BrowseKind.Performers -> f.performer.copy(gender = f.performer.gender ?: g)
+
                         BrowseKind.Studios -> f.studio
+
                         BrowseKind.Tags -> if (f.tagsAz) AllTags(f.tag) else f.tag
                     },
                 )
@@ -195,6 +200,15 @@ class BrowseViewModel(
     }
 
     fun update(transform: (Filters) -> Filters) = filters.update(transform)
+
+    /** Performer page trait arrow: Browse → Performers filtered by that trait alone (or by [gender]). */
+    fun showPerformers(
+        trait: PerformerTrait?,
+        gender: String? = null,
+    ) {
+        filters.update { it.copy(performer = BrowsePerformers.copy(gender = gender, traits = listOfNotNull(trait))) }
+        kind.value = BrowseKind.Performers
+    }
 
     /** A–Z tags: all pages (100 each, cached) so the letter rail can reach every letter. */
     val allTags = MutableStateFlow(PagedState<Tag>())

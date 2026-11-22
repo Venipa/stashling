@@ -20,6 +20,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -27,6 +28,7 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.verticalScroll
@@ -36,6 +38,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -43,8 +47,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
@@ -93,7 +101,7 @@ import net.venipa.stashling.feature.common.openLink
 import net.venipa.stashling.feature.common.performerTransformKey
 import net.venipa.stashling.feature.common.rememberPerformerMenu
 import net.venipa.stashling.feature.common.stashWebUrl
-import net.venipa.stashling.feature.detail.whisparr.WhisparrPanel
+import net.venipa.stashling.feature.detail.whisparr.WhisparrBar
 import net.venipa.stashling.feature.detail.whisparr.WhisparrPanelViewModel
 
 class SceneDetailViewModel(private val id: String, private val c: AppContainer) : ViewModel() {
@@ -113,7 +121,7 @@ class SceneDetailViewModel(private val id: String, private val c: AppContainer) 
     fun toggleBookmark(s: Scene) = actions.toggleBookmark(s.title ?: "", s.studio?.name, s.images.firstOrNull()?.sized(300))
 }
 
-/** Scene detail: hero with glass buttons, Whisparr card, facts, performers, tags, details, links, image strip. */
+/** Scene detail: paging hero with the meta on its scrim, performers, clamped tags/details, expandable links/production rows, floating Whisparr bar. */
 @Composable
 fun SceneDetailScreen(
     id: String,
@@ -151,120 +159,135 @@ private fun SceneBody(
     val glass = rememberGlassState()
     val context = LocalContext.current
     var actions by remember { mutableStateOf(false) }
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(Space.L)) {
-        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
-            StashImage(
-                scene.images.firstOrNull()?.sized(1280),
-                Modifier.fillMaxSize().glassSource(glass).then(if (scene.images.isEmpty()) Modifier else Modifier.clickable { onOpenGallery(0) }),
-                scene.title,
-            )
-            Row(Modifier.fillMaxWidth().statusBarsPadding().padding(Space.S), horizontalArrangement = Arrangement.SpaceBetween) {
-                GlassIconButton(glass, StashlingIcons.Back, stringResource(R.string.detail_back), onBack)
-                Row(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                    GlassIconButton(
-                        glass,
-                        if (bookmarked) BrowseIcons.BookmarkFilled else BrowseIcons.Bookmark,
-                        stringResource(if (bookmarked) R.string.detail_unbookmark else R.string.detail_bookmark),
-                        onBookmark,
-                    )
-                    GlassIconButton(glass, StashlingIcons.More, stringResource(R.string.library_more), { actions = true })
+    val density = LocalDensity.current
+    // 2C: the bar is glass while the hero is behind it, tonal over text.
+    var heroBottom by remember { mutableFloatStateOf(0f) }
+    var barTop by remember { mutableFloatStateOf(Float.MAX_VALUE) }
+    var barPx by remember { mutableIntStateOf(0) }
+    val pager = rememberPagerState { scene.images.size }
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(Space.L)) {
+            Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).onGloballyPositioned { heroBottom = it.boundsInRoot().bottom }) {
+                HeroPager(scene.images, 1280, Modifier.fillMaxSize().glassSource(glass), scene.title, pager, onOpenGallery)
+                // 1C: title, studio, date and duration on the hero's bottom scrim.
+                Column(
+                    Modifier
+                        .align(Alignment.BottomStart)
+                        .fillMaxWidth()
+                        .background(Brush.verticalGradient(listOf(Color.Transparent, Color.Black.copy(alpha = 0.72f))))
+                        .padding(start = Space.L, end = Space.L, top = Space.Xl, bottom = Space.M),
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    Row(verticalAlignment = Alignment.Bottom) {
+                        Text(scene.title ?: stringResource(R.string.browse_untitled), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, color = Color.White, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        PagerDots(pager, Modifier.padding(start = Space.S, bottom = Space.S))
+                    }
+                    scene.studio?.let { st ->
+                        Breadcrumb(listOfNotNull(st.parent?.let { p -> p.name to { onOpenStudio(p.id) } }, st.name to { onOpenStudio(st.id) }), color = Color.White.copy(alpha = 0.9f))
+                    }
+                    val meta = listOfNotNull(scene.releaseDate, scene.durationSec?.let(::formatDuration)).joinToString(" · ")
+                    if (meta.isNotEmpty()) Text(meta, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
                 }
-            }
-        }
-        if (actions) SceneActionsSheet(scene, bookmarked, onBookmark) { actions = false }
-        Column(Modifier.padding(horizontal = Space.L).readableWidth(), verticalArrangement = Arrangement.spacedBy(Space.L)) {
-            if (scene.deleted) {
-                TonalCard(tone = CardTone.Error) { Text(stringResource(R.string.detail_deleted)) }
-            }
-            WhisparrPanel(scene.id)
-            Column(verticalArrangement = Arrangement.spacedBy(Space.S)) {
-                Text(scene.title ?: stringResource(R.string.browse_untitled), style = MaterialTheme.typography.headlineSmall)
-                scene.studio?.let { s ->
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                        SuggestionChip({ onOpenStudio(s.id) }, { Text(s.name) })
-                        s.parent?.let { p -> SuggestionChip({ onOpenStudio(p.id) }, { Text(p.name) }) }
+                Row(Modifier.fillMaxWidth().statusBarsPadding().padding(Space.S), horizontalArrangement = Arrangement.SpaceBetween) {
+                    GlassIconButton(glass, StashlingIcons.Back, stringResource(R.string.detail_back), onBack)
+                    Row(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
+                        GlassIconButton(
+                            glass,
+                            if (bookmarked) BrowseIcons.BookmarkFilled else BrowseIcons.Bookmark,
+                            stringResource(if (bookmarked) R.string.detail_unbookmark else R.string.detail_bookmark),
+                            onBookmark,
+                        )
+                        GlassIconButton(glass, StashlingIcons.More, stringResource(R.string.library_more), { actions = true })
                     }
                 }
             }
-            val facts = listOfNotNull(
-                scene.releaseDate?.let { R.string.detail_release_date to it },
-                scene.durationSec?.let { R.string.detail_duration to formatDuration(it) },
-                scene.code?.let { R.string.detail_code to it },
-                scene.director?.let { R.string.detail_director to it },
-                scene.productionDate?.let { R.string.detail_production_date to it },
-            )
-            if (facts.isNotEmpty()) {
-                TonalGroup {
-                    facts.forEach { (label, value) -> GroupRow(value, supporting = stringResource(label)) }
+            if (actions) SceneActionsSheet(scene, bookmarked, onBookmark) { actions = false }
+            Column(Modifier.padding(horizontal = Space.L).readableWidth(), verticalArrangement = Arrangement.spacedBy(Space.L)) {
+                if (scene.deleted) {
+                    TonalCard(tone = CardTone.Error) { Text(stringResource(R.string.detail_deleted)) }
                 }
-            }
-            if (scene.performers.isNotEmpty()) {
-                Column {
-                    SectionHeader(stringResource(R.string.detail_performers))
-                    val wanted = LocalAppContainer.current.settings.settings.collectAsState(null).value?.performerGender?.apiValue()
-                    // Unknown gender counts as matching; no setting (BOTH) hides nothing.
-                    val (shown, hidden) = scene.performers.partition { wanted == null || it.gender == null || it.gender.equals(wanted, ignoreCase = true) }
-                    var expanded by remember { mutableStateOf(false) }
-                    val haptic = LocalStashHaptics.current
-                    val spec = spring<Float>(Spring.DampingRatioNoBouncy)
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.Start) {
-                        // Gap is end padding per tile (not spacedBy) so the collapsed, zero-width reveal adds no gap.
-                        @Composable
-                        fun Tile(p: net.venipa.stashling.core.stash.PerformerRef) {
-                            val menu = rememberPerformerMenu(p, MaterialTheme.shapes.medium)
-                            PortraitAvatar(p.name, p.thumbnail?.sized(300), { onOpenPerformer(p.id) }, menu.modifier.padding(end = Space.M).containerTransform(performerTransformKey(p.id), MaterialTheme.shapes.medium), supporting = p.asName?.let { stringResource(R.string.detail_as, it) }, onLongClick = menu.open)
-                        }
-                        shown.forEach { Tile(it) }
-                        if (hidden.isNotEmpty()) {
-                            AnimatedVisibility(
-                                expanded,
-                                enter = expandHorizontally(spring(Spring.DampingRatioNoBouncy)) + fadeIn(spec),
-                                exit = shrinkHorizontally(spring(Spring.DampingRatioNoBouncy)) + fadeOut(spec),
-                            ) {
-                                Row { hidden.forEach { Tile(it) } }
-                            }
-                            HiddenPerformersTile(hidden.size, hidden.first().thumbnail?.sized(300), expanded) {
-                                haptic.tick()
-                                expanded = !expanded
-                            }
-                        }
+                if (scene.performers.isNotEmpty()) Performers(scene, onOpenPerformer)
+                if (scene.tags.isNotEmpty()) {
+                    Column {
+                        SectionHeader(stringResource(R.string.detail_tags))
+                        TagsLine(scene.tags, onOpenTag)
                     }
                 }
-            }
-            if (scene.tags.isNotEmpty()) {
-                Column {
-                    SectionHeader(stringResource(R.string.detail_tags))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                        scene.tags.forEach { t -> SuggestionChip({ onOpenTag(t.id) }, { Text(t.name) }) }
+                scene.details?.takeIf { it.isNotBlank() }?.let { d ->
+                    Column {
+                        SectionHeader(stringResource(R.string.detail_details))
+                        ClampedText(d)
                     }
                 }
-            }
-            scene.details?.takeIf { it.isNotBlank() }?.let { d ->
-                Column {
-                    SectionHeader(stringResource(R.string.detail_details))
-                    TonalCard { Text(d, style = MaterialTheme.typography.bodyMedium) }
-                }
-            }
-            if (scene.urls.isNotEmpty()) {
-                Column {
-                    SectionHeader(stringResource(R.string.detail_links))
+                // 1C: links and production info as one-line rows that open in place.
+                val production = listOfNotNull(
+                    scene.code?.let { R.string.detail_code to it },
+                    scene.director?.let { R.string.detail_director to it },
+                    scene.productionDate?.let { R.string.detail_production_date to it },
+                )
+                if (scene.urls.isNotEmpty() || production.isNotEmpty()) {
                     TonalGroup {
-                        scene.urls.forEach { l -> GroupRow(l.site, supporting = l.url, onClick = { openLink(context, l.url) }) }
+                        if (scene.urls.isNotEmpty()) {
+                            ExpandRow(stringResource(R.string.detail_links), scene.urls.map { it.site }.distinct().joinToString(" · ")) {
+                                scene.urls.forEach { l -> GroupRow(l.site, supporting = l.url, onClick = { openLink(context, l.url) }) }
+                            }
+                        }
+                        if (production.isNotEmpty()) {
+                            val labels = production.map { (l, _) -> stringResource(l) }
+                            ExpandRow(stringResource(R.string.detail_production), labels.joinToString(" · ")) {
+                                production.forEach { (label, value) -> GroupRow(value, supporting = stringResource(label)) }
+                            }
+                        }
                     }
                 }
             }
+            // Room for the floating Whisparr bar (its footprint includes the nav bar), or the nav bar without it.
+            Box(if (barPx > 0) Modifier.height(with(density) { barPx.toDp() }) else Modifier.navigationBarsPadding().height(Space.L))
         }
-        if (scene.images.size > 1) {
-            Column {
-                SectionHeader(stringResource(R.string.detail_images), Modifier.padding(horizontal = Space.L))
-                LazyRow(contentPadding = androidx.compose.foundation.layout.PaddingValues(horizontal = Space.L), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                    items(scene.images.size, key = { scene.images[it].id }) { i ->
-                        StashImage(scene.images[i].sized(300), Modifier.size(width = 160.dp, height = 90.dp).clip(concentricShape(16.dp, 0.dp)).clickable { onOpenGallery(i) })
-                    }
-                }
+        WhisparrBar(
+            scene.id,
+            glass,
+            overImage = heroBottom > barTop,
+            Modifier.align(Alignment.BottomCenter).onGloballyPositioned { barTop = it.boundsInRoot().top },
+            onHeight = { barPx = it },
+        )
+    }
+}
+
+/** Performers portrait row; genders hidden by Settings fold into a "+N" tile. */
+@Composable
+private fun Performers(
+    scene: Scene,
+    onOpenPerformer: (String) -> Unit,
+) = Column {
+    SectionHeader(stringResource(R.string.detail_performers))
+    val wanted = LocalAppContainer.current.settings.settings.collectAsState(null).value?.performerGender?.apiValue()
+    // Unknown gender counts as matching; no setting (BOTH) hides nothing.
+    val (shown, hidden) = scene.performers.partition { wanted == null || it.gender == null || it.gender.equals(wanted, ignoreCase = true) }
+    var expanded by remember { mutableStateOf(false) }
+    val haptic = LocalStashHaptics.current
+    val spec = spring<Float>(Spring.DampingRatioNoBouncy)
+    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.Start) {
+        // Gap is end padding per tile (not spacedBy) so the collapsed, zero-width reveal adds no gap.
+        @Composable
+        fun Tile(p: net.venipa.stashling.core.stash.PerformerRef) {
+            val menu = rememberPerformerMenu(p, MaterialTheme.shapes.medium)
+            PortraitAvatar(p.name, p.thumbnail?.sized(300), { onOpenPerformer(p.id) }, menu.modifier.padding(end = Space.M).containerTransform(performerTransformKey(p.id), MaterialTheme.shapes.medium), supporting = p.asName?.let { stringResource(R.string.detail_as, it) }, onLongClick = menu.open)
+        }
+        shown.forEach { Tile(it) }
+        if (hidden.isNotEmpty()) {
+            AnimatedVisibility(
+                expanded,
+                enter = expandHorizontally(spring(Spring.DampingRatioNoBouncy)) + fadeIn(spec),
+                exit = shrinkHorizontally(spring(Spring.DampingRatioNoBouncy)) + fadeOut(spec),
+            ) {
+                Row { hidden.forEach { Tile(it) } }
+            }
+            HiddenPerformersTile(hidden.size, hidden.first().thumbnail?.sized(300), expanded) {
+                haptic.tick()
+                expanded = !expanded
             }
         }
-        Box(Modifier.size(Space.L))
     }
 }
 

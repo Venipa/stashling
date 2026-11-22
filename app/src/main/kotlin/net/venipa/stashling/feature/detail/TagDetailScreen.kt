@@ -13,6 +13,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -102,15 +103,12 @@ fun TagDetailScreen(
             },
         ) { pad ->
             ScenesGrid(scenes, mode, listPadding(pad), vm.scenes::loadMore, vm.scenes::retry, onOpenScene, onRefresh = vm::refresh, header = {
+                // Same compact header as the studio: "Category › Tag" breadcrumb, aliases, description clamped to 3 lines.
                 fullSpan("info") {
-                    Column(verticalArrangement = Arrangement.spacedBy(Space.L)) {
-                        if (t.category != null || t.aliases.isNotEmpty()) {
-                            TonalGroup {
-                                t.category?.let { GroupRow(it, supporting = stringResource(R.string.detail_category)) }
-                                if (t.aliases.isNotEmpty()) GroupRow(t.aliases.joinToString(), supporting = stringResource(R.string.detail_aliases))
-                            }
-                        }
-                        t.description?.takeIf { it.isNotBlank() }?.let { TonalCard { Text(it, style = MaterialTheme.typography.bodyMedium) } }
+                    Column(verticalArrangement = Arrangement.spacedBy(Space.Xs)) {
+                        Breadcrumb(listOfNotNull(t.category?.let { it to null }, t.name to null))
+                        if (t.aliases.isNotEmpty()) Text(t.aliases.joinToString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        t.description?.takeIf { it.isNotBlank() }?.let { ClampedText(it, Modifier.padding(top = Space.Xs)) }
                     }
                 }
                 fullSpan("scenes-header") { SectionHeader(stringResource(R.string.detail_scenes), Modifier.padding(top = Space.S)) }

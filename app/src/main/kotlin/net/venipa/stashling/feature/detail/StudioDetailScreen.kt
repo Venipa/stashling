@@ -1,15 +1,23 @@
 package net.venipa.stashling.feature.detail
 
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -19,12 +27,15 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -40,11 +51,14 @@ import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.SceneFilter
 import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.Studio
+import net.venipa.stashling.ds.ActionSheet
 import net.venipa.stashling.ds.AppSnackbar
 import net.venipa.stashling.ds.GroupRow
 import net.venipa.stashling.ds.LocalStashHaptics
 import net.venipa.stashling.ds.SectionHeader
+import net.venipa.stashling.ds.SheetAction
 import net.venipa.stashling.ds.Space
+import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
 import net.venipa.stashling.ds.concentricShape
 import net.venipa.stashling.feature.common.BrowseIcons
@@ -101,7 +115,7 @@ class StudioDetailViewModel(private val id: String, private val c: AppContainer)
     fun toggleFavorite(s: Studio) = actions.toggleFavorite(c.stash::setFavoriteStudio, s.name, s.parent?.name, image(s))
 }
 
-/** Studio: logo, aliases, links, parent and sub-studio chips, StashDB favorite, bookmark and its scenes (incl. sub-studios). */
+/** Studio: compact breadcrumb header, StashDB favorite, bookmark and its scenes (incl. sub-studios). */
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun StudioDetailScreen(
@@ -142,31 +156,42 @@ fun StudioDetailScreen(
             snackbarHost = { SnackbarHost(snackbar) { AppSnackbar(it) } },
         ) { pad ->
             ScenesGrid(scenes, mode, listPadding(pad), vm.scenes::loadMore, vm.scenes::retry, onOpenScene, onRefresh = vm::refresh, header = {
-                s.images.firstOrNull()?.let { img ->
-                    fullSpan("logo") {
-                        StashImage(img.sized(600), Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(concentricShape(16.dp, 0.dp)).clickable { onOpenGallery(0) }, s.name, ContentScale.Fit)
-                    }
-                }
-                fullSpan("info") {
-                    Column(verticalArrangement = Arrangement.spacedBy(Space.L)) {
-                        s.parent?.let { p ->
-                            Column {
-                                SectionHeader(stringResource(R.string.detail_parent_studio))
-                                SuggestionChip({ onOpenStudio(p.id) }, { Text(p.name) })
-                            }
-                        }
-                        if (s.children.isNotEmpty()) {
-                            Column {
-                                SectionHeader(stringResource(R.string.detail_sub_studios))
-                                FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) { s.children.forEach { ch -> SuggestionChip({ onOpenStudio(ch.id) }, { Text(ch.name) }) } }
-                            }
-                        }
-                        if (s.aliases.isNotEmpty()) TonalGroup { GroupRow(s.aliases.joinToString(), supporting = stringResource(R.string.detail_aliases)) }
-                        if (s.urls.isNotEmpty()) TonalGroup { s.urls.forEach { l -> GroupRow(l.site, supporting = l.url, onClick = { openLink(context, l.url) }) } }
-                    }
-                }
+                fullSpan("info") { Header(s, onOpenStudio, onOpenGallery) }
                 fullSpan("scenes-header") { SectionHeader(stringResource(R.string.detail_scenes), Modifier.padding(top = Space.S)) }
             })
         }
+    }
+}
+
+/** 5C: logo beside the "Network › Studio" breadcrumb, aliases and one chip row; sub-studios and links open sheets. */
+@Composable
+private fun Header(
+    s: Studio,
+    onOpenStudio: (String) -> Unit,
+    onOpenGallery: (Int) -> Unit,
+) {
+    val context = LocalContext.current
+    var sheet by remember { mutableIntStateOf(0) }
+    Row(horizontalArrangement = Arrangement.spacedBy(Space.L)) {
+        val logo = s.images.firstOrNull()
+        StashImage(
+            logo?.sized(600),
+            Modifier.width(128.dp).aspectRatio(16f / 9f).clip(MaterialTheme.shapes.medium).then(if (logo != null) Modifier.clickable { onOpenGallery(0) } else Modifier),
+            s.name,
+            ContentScale.Fit,
+        )
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(Space.Xs)) {
+            Breadcrumb(listOfNotNull(s.parent?.let { p -> p.name to { onOpenStudio(p.id) } }, s.name to null))
+            if (s.aliases.isNotEmpty()) Text(s.aliases.joinToString(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
+                val arrow: @Composable () -> Unit = { Icon(StashlingIcons.ChevronRight, null, Modifier.size(AssistChipDefaults.IconSize)) }
+                if (s.children.isNotEmpty()) AssistChip({ sheet = 1 }, { Text(stringResource(R.string.detail_sub_studios_n, s.children.size)) }, trailingIcon = arrow)
+                if (s.urls.isNotEmpty()) AssistChip({ sheet = 2 }, { Text(stringResource(R.string.detail_links_n, s.urls.size)) }, trailingIcon = arrow)
+            }
+        }
+    }
+    when (sheet) {
+        1 -> ActionSheet(stringResource(R.string.detail_sub_studios), s.children.map { ch -> SheetAction(ch.name, StashlingIcons.Studio) { onOpenStudio(ch.id) } }) { sheet = 0 }
+        2 -> ActionSheet(stringResource(R.string.detail_links), s.urls.map { l -> SheetAction(l.site, StashlingIcons.OpenExternal) { openLink(context, l.url) } }) { sheet = 0 }
     }
 }
