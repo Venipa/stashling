@@ -93,6 +93,8 @@ val expectedPermissions =
     sortedSetOf(
         "android.permission.INTERNET",
         "android.permission.ACCESS_NETWORK_STATE",
+        // Download notifications (Whisparr watch).
+        "android.permission.POST_NOTIFICATIONS",
         // androidx.biometric (app lock).
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",

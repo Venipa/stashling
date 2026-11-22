@@ -21,6 +21,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -34,6 +35,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
@@ -88,6 +90,7 @@ fun TonalCard(
     hero: Boolean = false,
     onClick: (() -> Unit)? = null,
     contentPadding: PaddingValues? = null,
+    shape: Shape? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
     val scheme = MaterialTheme.colorScheme
@@ -106,7 +109,7 @@ fun TonalCard(
             CardTone.Error -> scheme.onErrorContainer
             else -> scheme.onSurface
         }
-    val shape = if (hero) MaterialTheme.shapes.extraLarge else MaterialTheme.shapes.large
+    val shape = shape ?: if (hero) MaterialTheme.shapes.extraLarge else MaterialTheme.shapes.large
     val colors = CardDefaults.cardColors(containerColor = container, contentColor = onContainer)
     val body: @Composable ColumnScope.() -> Unit = {
         Column(Modifier.padding(contentPadding ?: PaddingValues(if (hero) 20.dp else 16.dp)), verticalArrangement = Arrangement.spacedBy(8.dp), content = content)
@@ -161,6 +164,7 @@ fun ActionButton(
     enabled: Boolean = true,
     tonal: Boolean = false,
     icon: ImageVector? = null,
+    shape: Shape? = null,
 ) {
     val content: @Composable () -> Unit = {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -169,7 +173,11 @@ fun ActionButton(
         }
     }
     val m = modifier.fillMaxWidth().heightIn(min = 56.dp)
-    if (tonal) FilledTonalButton(onClick, m, enabled) { content() } else Button(onClick, m, enabled) { content() }
+    if (tonal) {
+        FilledTonalButton(onClick, m, enabled, shape = shape ?: ButtonDefaults.filledTonalShape) { content() }
+    } else {
+        Button(onClick, m, enabled, shape = shape ?: ButtonDefaults.shape) { content() }
+    }
 }
 
 @Composable

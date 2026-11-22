@@ -1,0 +1,50 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Whisparr strings (whisparr_ / downloads_). Action labels are Whisparr's own. -->
+<resources>
+    <string name="whisparr_title">Whisparr</string>
+    <string name="whisparr_add">Add</string>
+    <string name="whisparr_add_and_search">Add and search</string>
+    <string name="whisparr_interactive_search">Interactive search</string>
+    <string name="whisparr_search">Search</string>
+    <string name="whisparr_monitored">Monitored</string>
+    <string name="whisparr_retry">Retry</string>
+    <string name="whisparr_not_in_library">Not in Whisparr</string>
+    <string name="whisparr_excluded">On the exclusion list</string>
+    <string name="whisparr_missing">Missing</string>
+    <string name="whisparr_unmonitored">Unmonitored</string>
+    <string name="whisparr_searching">Searching</string>
+    <string name="whisparr_searching_body">Whisparr is asking your indexers.</string>
+    <string name="whisparr_no_release">No release found. Try Interactive search.</string>
+    <string name="whisparr_downloaded">Downloaded</string>
+    <string name="whisparr_failed">Download failed</string>
+    <string name="whisparr_error">Whisparr error</string>
+    <string name="whisparr_progress">%1$d%% · %2$s of %3$s</string>
+    <string name="whisparr_releases_title">Interactive search</string>
+    <string name="whisparr_releases_loading">Searching indexers, this can take a minute.</string>
+    <string name="whisparr_releases_empty">No releases found</string>
+    <string name="whisparr_release_meta">%1$s · %2$s · %3$s · %4$s</string>
+    <string name="whisparr_release_seeders">%1$d seeders</string>
+    <string name="whisparr_release_rejected">Rejected: %1$s</string>
+    <string name="whisparr_age_hours">%1$dh</string>
+    <string name="whisparr_age_days">%1$dd</string>
+
+    <string name="downloads_title">Downloads</string>
+    <string name="downloads_tab_queue">Queue</string>
+    <string name="downloads_tab_history">History</string>
+    <string name="downloads_queue_empty">Nothing downloading</string>
+    <string name="downloads_history_empty">No downloads in the last 14 days</string>
+    <string name="downloads_remove">Remove</string>
+    <string name="downloads_blocklist">Blocklist</string>
+    <string name="downloads_remove_title">Remove from queue?</string>
+    <string name="downloads_remove_body">Whisparr removes it from the download client too.</string>
+    <string name="downloads_blocklist_title">Remove and blocklist?</string>
+    <string name="downloads_blocklist_body">Whisparr removes it, will not grab this release again and looks for another.</string>
+    <string name="downloads_event_grabbed">Grabbed</string>
+    <string name="downloads_event_imported">Imported</string>
+    <string name="downloads_event_failed">Failed</string>
+    <string name="downloads_channel">Downloads</string>
+    <string name="downloads_channel_description">Whisparr grabbed, imported or failed a scene</string>
+    <string name="downloads_notify_grabbed">Download started</string>
+    <string name="downloads_notify_imported">Download finished</string>
+    <string name="downloads_notify_failed">Download failed</string>
+</resources>

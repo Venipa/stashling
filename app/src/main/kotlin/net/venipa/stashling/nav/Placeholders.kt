@@ -12,5 +12,3 @@ import androidx.compose.ui.Modifier
 fun Placeholder(label: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(label, style = MaterialTheme.typography.titleMedium) }
 }
-
-@Composable fun DownloadsPlaceholder() = Placeholder("Downloads")

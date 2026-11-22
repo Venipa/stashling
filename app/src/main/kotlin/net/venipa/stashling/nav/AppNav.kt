@@ -51,6 +51,7 @@ import net.venipa.stashling.feature.detail.PerformerDetailScreen
 import net.venipa.stashling.feature.detail.SceneDetailScreen
 import net.venipa.stashling.feature.detail.StudioDetailScreen
 import net.venipa.stashling.feature.detail.TagDetailScreen
+import net.venipa.stashling.feature.downloads.DownloadsScreen
 import net.venipa.stashling.feature.gallery.GalleryScreen
 import net.venipa.stashling.feature.home.HomeScreen
 import net.venipa.stashling.feature.onboarding.OnboardingScreen
@@ -135,7 +136,7 @@ fun AppNav(
                     entry<HomeRoute> { HomeScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }) }
                     entry<BrowseRoute> { BrowseScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
                     entry<SavedRoute> { SavedScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
-                    entry<DownloadsRoute> { DownloadsPlaceholder() }
+                    entry<DownloadsRoute> { DownloadsScreen() }
                     entry<SceneDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> SceneDetailScreen(r.id, onBack = navigator.pop, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("scene", r.id, i)) }) }
                     entry<PerformerDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> PerformerDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("performer", r.id, i)) }) }
                     entry<StudioDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> StudioDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("studio", r.id, i)) }) }
