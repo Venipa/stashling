@@ -1,0 +1,70 @@
+@import "tailwindcss";
+@import "fumadocs-ui/css/neutral.css";
+@import "fumadocs-ui/css/preset.css";
+
+/* StashlingTheme dark scheme in the red the user's phone uses (Material You sample, matches the captures). Dark only. */
+:root,
+.dark {
+  --color-fd-background: #1a1110;
+  --color-fd-foreground: #f1dfdb;
+  --color-fd-muted: #322825;
+  --color-fd-muted-foreground: #d8c2be;
+  --color-fd-popover: #271d1b;
+  --color-fd-popover-foreground: #f1dfdb;
+  --color-fd-card: #271d1b;
+  --color-fd-card-foreground: #f1dfdb;
+  --color-fd-border: color-mix(in srgb, #d8c2be 16%, transparent);
+  --color-fd-primary: #ffb4a8;
+  --color-fd-primary-foreground: #561e16;
+  --color-fd-secondary: #322825;
+  --color-fd-secondary-foreground: #f1dfdb;
+  --color-fd-accent: color-mix(in srgb, #ffb4a8 14%, transparent);
+  --color-fd-accent-foreground: #f1dfdb;
+  --color-fd-ring: #ffb4a8;
+  --pc: #73342b;
+  --onpc: #ffdad4;
+}
+
+html {
+  scrollbar-gutter: stable;
+}
+
+html > body[data-scroll-locked] {
+  margin-right: 0px !important;
+  --removed-body-scroll-bar-size: 0px !important;
+}
+
+/* Glass: the app's glass dock (neutral scrim over a blur, hairline). */
+.glass {
+  background: color-mix(in srgb, var(--color-fd-background) 62%, transparent);
+  backdrop-filter: blur(16px) saturate(1.2);
+  -webkit-backdrop-filter: blur(16px) saturate(1.2);
+  box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.1);
+}
+
+/* Screen wall: columns drift in opposite directions. */
+@keyframes drift-up {
+  to {
+    transform: translateY(-25%);
+  }
+}
+@keyframes drift-down {
+  from {
+    transform: translateY(-25%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.drift-up {
+  animation: drift-up 60s linear infinite alternate;
+}
+.drift-down {
+  animation: drift-down 60s linear infinite alternate;
+}
+@media (prefers-reduced-motion: reduce) {
+  .drift-up,
+  .drift-down {
+    animation: none;
+  }
+}

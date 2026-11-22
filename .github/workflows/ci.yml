@@ -8,8 +8,11 @@ on:
     branches: [master, "feat/**"]
 
 jobs:
-  check:
+  android:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/android
     steps:
       - uses: actions/checkout@v4
         with:
@@ -29,3 +32,11 @@ jobs:
           packages: "platforms;android-37.2 build-tools;36.0.0 platform-tools"
 
       - run: ./gradlew assembleDebug testDebugUnitTest spotlessCheck
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run docs:build

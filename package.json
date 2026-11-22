@@ -1,0 +1,12 @@
+{
+  "name": "stashling",
+  "private": true,
+  "workspaces": ["apps/*"],
+  "scripts": {
+    "docs:dev": "bun --filter @stashling/docs dev",
+    "docs:build": "bun --filter @stashling/docs build",
+    "android:build": "cd apps/android && ./gradlew assembleDebug",
+    "android:check": "cd apps/android && ./gradlew assembleDebug testDebugUnitTest spotlessCheck",
+    "android:release": "cd apps/android && ./release.sh"
+  }
+}

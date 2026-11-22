@@ -1,7 +1,7 @@
 # Signed release APK on a v* tag (attached to a GitHub Release) or by hand (artifact only).
 #
 # Repository secrets (Settings -> Secrets and variables -> Actions):
-#   STASHLING_KEYSTORE_BASE64   base64 of keys/stashling-release.jks (base64 -w0 keys/stashling-release.jks)
+#   STASHLING_KEYSTORE_BASE64   base64 of apps/android/keys/stashling-release.jks (base64 -w0 apps/android/keys/stashling-release.jks)
 #   STASHLING_KEYSTORE_PASSWORD store password
 #   STASHLING_KEY_ALIAS         key alias (stashling)
 #   STASHLING_KEY_PASSWORD      key password (PKCS12: same as the store password)
@@ -27,6 +27,9 @@ permissions:
 jobs:
   apk:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/android
     steps:
       - uses: actions/checkout@v4
         with:
@@ -87,8 +90,8 @@ jobs:
         with:
           name: stashling-${{ steps.version.outputs.name }}
           path: |
-            ${{ env.APK }}
-            app/build/outputs/mapping/release/mapping.txt
+            apps/android/${{ env.APK }}
+            apps/android/app/build/outputs/mapping/release/mapping.txt
 
       - name: GitHub Release
         if: github.ref_type == 'tag'

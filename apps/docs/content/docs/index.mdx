@@ -1,0 +1,23 @@
+---
+title: Introduction
+description: What Stashling is and how to install it.
+---
+
+Stashling is an Android app for browsing [StashDB](https://stashdb.org) (stash-box) with local bookmarks, image
+galleries and Whisparr v3 integration. It is a personal / homelab project: no Google Play services, no tracking, no
+billing.
+
+## Install
+
+Download the latest signed APK from [GitHub Releases](https://github.com/Venipa/stashling/releases/latest) and
+install it. Updates must come from the same signing key, so install over the existing app.
+
+## Develop
+
+The repository is a Bun workspace. The Android app lives in `apps/android/` (Gradle), these docs in `apps/docs/`.
+
+```sh
+bun install
+bun run docs:dev        # docs + landing page on http://localhost:3000
+bun run android:build   # debug APK
+```
