@@ -207,3 +207,12 @@ internal fun parseWhisparrInstant(s: String): Instant {
     val hasOffset = s.endsWith("Z", ignoreCase = true) || Regex("[+-]\\d{2}:?\\d{2}$").containsMatchIn(s.substringAfter('T', ""))
     return Instant.parse(if (hasOffset) s else "${s}Z")
 }
+
+/** Slim, all-optional view of a library item for tile badges: one odd item (e.g. no foreignId/title) must not fail the whole list. */
+@Serializable
+data class LibraryEntry(
+    val id: Int = 0,
+    val foreignId: String? = null,
+    val stashId: String? = null,
+    val hasFile: Boolean? = null,
+)

@@ -88,7 +88,10 @@ class AppContainer(context: Context) {
     /** Call on connect, while visible (with the downloads poller) and after add/search/grab; errors keep the last index. */
     suspend fun refreshWhisparrIndex() {
         val repo = whisparr.value ?: return run { whisparrIndex.value = emptyMap() }
-        runCatching { repo.libraryIndex() }.onSuccess { whisparrIndex.value = it }
+        runCatching { repo.libraryIndex() }
+            .onSuccess { whisparrIndex.value = it }
+            // Diagnosable without leaking anything: error type + Whisparr's message only.
+            .onFailure { System.err.println("Whisparr index failed: ${it::class.simpleName}: ${it.message}") }
     }
 
     // Live updates (SignalR) while the app is visible; polls slow down to a fallback while connected.

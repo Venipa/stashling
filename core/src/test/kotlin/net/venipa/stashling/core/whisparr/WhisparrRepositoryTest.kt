@@ -235,7 +235,7 @@ class WhisparrRepositoryTest {
 
         override suspend fun movieByStashId(stashId: String): List<WhisparrScene> = TODO()
 
-        override suspend fun movies(): List<WhisparrScene> = TODO()
+        override suspend fun movies(): List<LibraryEntry> = TODO()
 
         override suspend fun movie(id: Int): WhisparrScene = TODO()
 

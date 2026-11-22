@@ -5,20 +5,25 @@ import io.ktor.client.plugins.timeout
 import io.ktor.client.request.HttpRequestBuilder
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
+import io.ktor.client.request.prepareRequest
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
 import io.ktor.client.statement.HttpResponse
+import io.ktor.client.statement.bodyAsChannel
 import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
 import io.ktor.http.isSuccess
+import io.ktor.utils.io.jvm.javaio.toInputStream
+import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.decodeFromStream
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
@@ -45,7 +50,7 @@ interface WhisparrApi {
     suspend fun movieByStashId(stashId: String): List<WhisparrScene>
 
     /** Whole library (GET movie): one call for the per-tile badges. */
-    suspend fun movies(): List<WhisparrScene>
+    suspend fun movies(): List<LibraryEntry>
 
     suspend fun movie(id: Int): WhisparrScene
 
@@ -112,7 +117,25 @@ class KtorWhisparrApi(
 
     override suspend fun movieByStashId(stashId: String): List<WhisparrScene> = get("movie") { parameter("stashId", stashId) }
 
-    override suspend fun movies(): List<WhisparrScene> = get("movie")
+    // The full library can be ~100 MB of JSON: stream-decode just the slim entries instead of building one String (OOM).
+    @OptIn(kotlinx.serialization.ExperimentalSerializationApi::class)
+    override suspend fun movies(): List<LibraryEntry> {
+        val stmt = client.prepareRequest("$api/movie") {
+            header("Accept", "application/json")
+            timeout { requestTimeoutMillis = 120_000 }
+        }
+        return try {
+            stmt.execute { response ->
+                if (response.status.value == 401) throw WhisparrError.Unauthorized()
+                if (!response.status.isSuccess()) throw WhisparrError.Http(response.status.value, "HTTP ${response.status.value}")
+                response.bodyAsChannel().toInputStream().use { whisparrJson.decodeFromStream(ListSerializer(LibraryEntry.serializer()), it) }
+            }
+        } catch (e: IOException) {
+            throw WhisparrError.Network(e)
+        } catch (e: IllegalArgumentException) {
+            throw WhisparrError.Http(200, "Unexpected reply from Whisparr (not its API?)")
+        }
+    }
 
     override suspend fun movie(id: Int): WhisparrScene = get("movie/$id")
 
