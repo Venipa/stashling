@@ -22,6 +22,8 @@ data class WhisparrScene(
     val title: String,
     val foreignId: String,
     val stashId: String? = null,
+    /** Web UI route `/movie/{titleSlug}` (frontend AppRoutes.tsx). */
+    val titleSlug: String? = null,
     val monitored: Boolean = false,
     val hasFile: Boolean? = null,
     val sizeOnDisk: Long? = null,
@@ -117,6 +119,7 @@ data class CommandRes(
     val name: String,
     val status: String,
     val message: String? = null,
+    @Serializable(with = LenientInstantSerializer::class) val queued: Instant? = null,
 )
 
 @Serializable

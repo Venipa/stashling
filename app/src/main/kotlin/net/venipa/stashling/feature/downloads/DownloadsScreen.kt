@@ -65,6 +65,7 @@ import net.venipa.stashling.feature.common.LocalNetworkNotice
 import net.venipa.stashling.feature.common.SceneRowSkeleton
 import net.venipa.stashling.feature.common.StashTopBar
 import net.venipa.stashling.feature.common.localNetworkMissing
+import net.venipa.stashling.feature.common.openLink
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.feature.detail.whisparr.QueueProgress
 import net.venipa.stashling.feature.detail.whisparr.queueLabel
@@ -161,10 +162,14 @@ fun DownloadsScreen(
         }
     }
 
+    val whisparrBase = LocalAppContainer.current.secrets.whisparr.collectAsStateWithLifecycle().value?.baseUrl
+    val ctx = LocalContext.current
     actionsFor?.let { item ->
+        val slug = item.movie?.titleSlug
         ActionSheet(
             item.movie?.title ?: item.title,
-            listOf(
+            listOfNotNull(
+                if (slug != null && whisparrBase != null) SheetAction(stringResource(R.string.whisparr_open), StashlingIcons.OpenExternal) { openLink(ctx, "$whisparrBase/movie/$slug") } else null,
                 SheetAction(stringResource(R.string.downloads_remove), StashlingIcons.Delete, destructive = true) { confirm = item to false },
                 SheetAction(stringResource(R.string.downloads_blocklist), StashlingIcons.Close, destructive = true) { confirm = item to true },
             ),

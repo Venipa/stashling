@@ -14,6 +14,8 @@ import net.venipa.stashling.core.data.TagRule
 import net.venipa.stashling.core.data.WhisparrPreset
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
+import kotlin.time.Duration.Companion.minutes
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 class WhisparrRepository(
@@ -33,8 +35,25 @@ class WhisparrRepository(
         if (scene == null) {
             notInLibrary(stashId)
         } else {
-            derivePanelState(scene, api.queue(scene.id), searchCommandId?.let { api.command(it) })
+            val command = searchCommandId?.let { api.command(it) }
+            val queue = api.queue(scene.id)
+            derivePanelState(scene, queue, command, grabbedPending = grabbedNotQueued(scene, queue, command))
         }
+    }
+
+    // A finished search that grabbed a release shows up in history at once, but in the queue only after Whisparr's next
+    // download-client refresh: without this the panel says "no release" and the user searches twice.
+    private suspend fun grabbedNotQueued(
+        scene: WhisparrScene,
+        queue: List<QueueItem>,
+        command: CommandRes?,
+    ): Boolean {
+        if (command == null || command.status in RUNNING_COMMAND || scene.hasFile == true || queue.any { it.movieId == scene.id }) return false
+        val since = (command.queued ?: now() - GRAB_WINDOW) - 5.seconds
+        if (now() - since > GRAB_WINDOW) return false
+        val grabbed = api.historySince(since).any { it.movieId == scene.id && it.eventType == "grabbed" }
+        if (grabbed) runCatching { api.command("RefreshMonitoredDownloads", emptyList()) }
+        return grabbed
     }
 
     /** The preset an add of a scene with these StashDB tag ids uses, and the rule that picked it (null = Default). */
@@ -130,6 +149,7 @@ class WhisparrRepository(
 
 private val FAILED_STATES = setOf("failed", "failedPending")
 private val RUNNING_COMMAND = setOf("queued", "started")
+private val GRAB_WINDOW = 3.minutes
 
 /**
  * Queue beats file (an upgrade can be downloading while a file exists); failed queue items are their own state,
@@ -139,6 +159,7 @@ internal fun derivePanelState(
     scene: WhisparrScene,
     queue: List<QueueItem>,
     searchCommand: CommandRes?,
+    grabbedPending: Boolean = false,
 ): PanelState {
     val item = queue.firstOrNull { it.movieId == scene.id }
     val running = searchCommand?.takeIf { it.status in RUNNING_COMMAND }
@@ -151,6 +172,9 @@ internal fun derivePanelState(
         scene.hasFile == true -> PanelState.Downloaded(scene)
 
         running != null -> PanelState.Searching(scene, running.id)
+
+        // Grabbed but not yet in the queue: keep following the search (active polling) instead of "no release".
+        grabbedPending && searchCommand != null -> PanelState.Searching(scene, searchCommand.id)
 
         else -> PanelState.Missing(scene)
     }

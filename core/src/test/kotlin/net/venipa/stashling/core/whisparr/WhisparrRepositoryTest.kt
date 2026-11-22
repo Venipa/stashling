@@ -33,6 +33,10 @@ class WhisparrRepositoryTest {
     @Test
     fun `panel state derivation`() {
         assertIs<PanelState.Missing>(derivePanelState(scene, emptyList(), null))
+        // A finished search that already grabbed (history) but isn't in the queue yet keeps following, not "no release".
+        val done = CommandRes(7, "MoviesSearch", "completed")
+        assertIs<PanelState.Missing>(derivePanelState(scene, emptyList(), done))
+        assertIs<PanelState.Searching>(derivePanelState(scene, emptyList(), done, grabbedPending = true))
         assertIs<PanelState.Downloaded>(derivePanelState(scene.copy(hasFile = true), emptyList(), null))
         val q = derivePanelState(scene.copy(hasFile = true), listOf(queueItem()), null)
         assertIs<PanelState.InQueue>(q)

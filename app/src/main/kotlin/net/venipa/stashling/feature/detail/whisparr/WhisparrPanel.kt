@@ -18,6 +18,7 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
@@ -71,6 +72,7 @@ import net.venipa.stashling.ds.groupItemShape
 import net.venipa.stashling.ds.sheetTitle
 import net.venipa.stashling.feature.common.LocalNetworkNotice
 import net.venipa.stashling.feature.common.localNetworkMissing
+import net.venipa.stashling.feature.common.openLink
 
 /** Inline tonal card under the scene hero. Renders nothing while Whisparr is not connected. */
 @Composable
@@ -96,8 +98,14 @@ fun WhisparrPanel(
     // hero: 28dp radius, 20dp padding, so nested buttons get a concentric 8dp (a 16/16 card would leave 0).
     TonalCard(modifier, tone = if (s is PanelState.Failed || s is PanelState.Error) CardTone.Error else CardTone.Plain, hero = true) {
         Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
-            Text(stringResource(R.string.whisparr_title), style = MaterialTheme.typography.titleMedium)
+            Text(stringResource(R.string.whisparr_title), style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
             Pill(s)
+            val slug = s.sceneOrNull()?.titleSlug
+            val base = container.secrets.whisparr.collectAsStateWithLifecycle().value?.baseUrl
+            if (slug != null && base != null) {
+                val context = LocalContext.current
+                IconButton({ openLink(context, "$base/movie/$slug") }) { Icon(StashlingIcons.OpenExternal, stringResource(R.string.whisparr_open)) }
+            }
         }
         when (s) {
             PanelState.Unavailable -> Unit
@@ -339,4 +347,13 @@ private fun ReleaseRow(
         }
         if (grabbing) LinearProgressIndicator(Modifier.fillMaxWidth())
     }
+}
+
+private fun PanelState.sceneOrNull() = when (this) {
+    is PanelState.Missing -> scene
+    is PanelState.Searching -> scene
+    is PanelState.InQueue -> scene
+    is PanelState.Failed -> scene
+    is PanelState.Downloaded -> scene
+    else -> null
 }

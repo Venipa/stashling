@@ -2,6 +2,7 @@
 <!-- Whisparr strings (whisparr_ / downloads_). Action labels are Whisparr's own. -->
 <resources>
     <string name="whisparr_title">Whisparr</string>
+    <string name="whisparr_open">Open in Whisparr</string>
     <string name="whisparr_add">Add</string>
     <string name="whisparr_add_and_search">Add and search</string>
     <string name="whisparr_interactive_search">Interactive search</string>
