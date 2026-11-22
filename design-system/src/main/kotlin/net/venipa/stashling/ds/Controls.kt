@@ -1,5 +1,6 @@
 package net.venipa.stashling.ds
 
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
@@ -29,7 +30,11 @@ import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.ToggleButtonShapes
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
@@ -67,7 +72,15 @@ fun StashSegmented(
     // that slides on the expressive spatial spring; buttons stay transparent on top. Concentric: track = button + pad.
     val buttonShape = RoundedCornerShape(SegmentRadius)
     val shapes = ToggleButtonShapes(buttonShape, RoundedCornerShape(SegmentRadius - 4.dp), buttonShape)
-    val position by animateFloatAsState(selected.toFloat(), MaterialTheme.motionScheme.fastSpatialSpec(), label = "segment")
+    // Only a tap animates: a value arriving from storage (first load, restore) snaps into place.
+    val spec = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
+    val anim = remember { Animatable(selected.toFloat()) }
+    var tapped by remember { mutableStateOf(false) }
+    LaunchedEffect(selected) {
+        if (tapped) anim.animateTo(selected.toFloat(), spec) else anim.snapTo(selected.toFloat())
+        tapped = false
+    }
+    val position = anim.value
     val count = options.size.coerceAtLeast(1)
     Box(
         modifier
@@ -99,6 +112,7 @@ fun StashSegmented(
                     onCheckedChange = {
                         if (it) {
                             haptic.tick()
+                            tapped = true
                             onSelect(i)
                         }
                     },

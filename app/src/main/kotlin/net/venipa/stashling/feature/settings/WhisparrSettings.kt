@@ -153,7 +153,7 @@ internal fun WhisparrSettings(
 ) {
     val container = LocalAppContainer.current
     val account by container.secrets.whisparr.collectAsState()
-    val settings by container.settings.settings.collectAsState(Settings())
+    val settings = container.settingsState.collectAsState().value ?: return
     var lists by remember { mutableStateOf<WhisparrLists?>(null) }
     var attempt by remember { mutableIntStateOf(0) }
     LaunchedEffect(account, attempt) { lists = account?.let { loadLists(it) } }

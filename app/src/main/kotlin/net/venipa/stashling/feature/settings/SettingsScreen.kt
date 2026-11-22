@@ -45,7 +45,8 @@ fun SettingsScreen(
     tab: Boolean = false,
 ) {
     val container = LocalAppContainer.current
-    val settings by container.settings.settings.collectAsState(Settings())
+    // Not rendered until the stored values are in: controls must not animate from defaults to the real values.
+    val settings = container.settingsState.collectAsState().value ?: return
     val whisparr by container.secrets.whisparr.collectAsState()
     val hidden by remember(container) { container.hidden.observe() }.collectAsState(emptyList())
     when (section) {

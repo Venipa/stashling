@@ -17,6 +17,7 @@ import net.venipa.stashling.core.data.HiddenRepository
 import net.venipa.stashling.core.data.RoomBookmarkRepository
 import net.venipa.stashling.core.data.SecretStore
 import net.venipa.stashling.core.data.SecretStoreImpl
+import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.data.SettingsStore
 import net.venipa.stashling.core.data.SettingsStoreImpl
 import net.venipa.stashling.core.data.StashlingDatabase
@@ -34,6 +35,9 @@ class AppContainer(context: Context) {
 
     val secrets: SecretStore = SecretStoreImpl(context)
     val settings: SettingsStore = SettingsStoreImpl(context)
+
+    // Loaded once per process: screens start from the stored values, so switches/segments don't animate from defaults.
+    val settingsState: StateFlow<Settings?> = settings.settings.stateIn(appScope, SharingStarted.Eagerly, null)
 
     // stashling.db, kept out of backup (data_extraction_rules.xml).
     private val db by lazy { StashlingDatabase.open(context) }
