@@ -1,5 +1,7 @@
 package net.venipa.stashling.feature.onboarding
 
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,6 +18,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import kotlinx.coroutines.CancellationException
@@ -29,9 +32,11 @@ import net.venipa.stashling.core.whisparr.WhisparrLogin
 import net.venipa.stashling.core.whisparr.normalizeWhisparrUrl
 import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.CardTone
-import net.venipa.stashling.ds.Loading
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.TonalCard
+import net.venipa.stashling.feature.common.LOCAL_NETWORK_PERMISSION
+import net.venipa.stashling.feature.common.LocalNetworkNotice
+import net.venipa.stashling.feature.common.localNetworkMissing
 import net.venipa.stashling.feature.settings.WhisparrDefaultsEditor
 
 /**
@@ -46,6 +51,7 @@ internal fun WhisparrStep(
     onSkip: () -> Unit,
 ) {
     val scope = rememberCoroutineScope()
+    val context = LocalContext.current
     var url by rememberSaveable { mutableStateOf("") }
     var needCreds by rememberSaveable { mutableStateOf(false) }
     var mode by rememberSaveable { mutableStateOf(0) }
@@ -63,7 +69,14 @@ internal fun WhisparrStep(
     val badUrl = stringResource(R.string.onboarding_err_whisparr_url)
     val tooOld = stringResource(R.string.onboarding_err_whisparr_version)
 
-    fun connect() {
+    var denied by remember { mutableStateOf(false) }
+    var connectAfterAsk by remember { mutableStateOf<() -> Unit>({}) }
+    val askLocalNetwork = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        denied = !granted
+        if (granted) connectAfterAsk()
+    }
+
+    fun connect(permissionAsked: Boolean = false) {
         val base =
             try {
                 normalizeWhisparrUrl(url)
@@ -83,6 +96,11 @@ internal fun WhisparrStep(
                 errorRes = R.string.onboarding_err_login_empty
                 error = null
             }
+        }
+        if (!permissionAsked && context.localNetworkMissing()) {
+            connectAfterAsk = { connect(true) }
+            askLocalNetwork.launch(LOCAL_NETWORK_PERMISSION)
+            return
         }
         busy = true
         error = null
@@ -129,7 +147,7 @@ internal fun WhisparrStep(
         stringResource(if (account == null) R.string.onboarding_whisparr_body else R.string.onboarding_whisparr_defaults_body),
         actions = {
             if (account == null) {
-                ActionButton(stringResource(R.string.onboarding_connect), ::connect, enabled = !busy && url.isNotBlank())
+                ActionButton(stringResource(R.string.onboarding_connect), { connect() }, enabled = url.isNotBlank(), loading = busy, loadingText = stringResource(R.string.onboarding_connecting))
                 TextButton(onSkip, Modifier.fillMaxWidth()) { Text(stringResource(if (finishLabel != null) R.string.onboarding_cancel else R.string.onboarding_skip)) }
             } else {
                 ActionButton(finishLabel ?: stringResource(R.string.onboarding_continue), onNext)
@@ -169,8 +187,7 @@ internal fun WhisparrStep(
                     TonalCard(tone = CardTone.Error) { Text(stringResource(R.string.onboarding_ignore_cert_warning), style = MaterialTheme.typography.bodyMedium) }
                 }
             }
-            (error ?: errorRes?.let { stringResource(it) })?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-            if (busy) Loading()
+            if (denied || (errorRes == R.string.onboarding_err_unreachable && context.localNetworkMissing())) LocalNetworkNotice() else (error ?: errorRes?.let { stringResource(it) })?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
         } else {
             Text(stringResource(R.string.onboarding_connected_to, account.baseUrl), style = MaterialTheme.typography.titleMedium)
             val defaults = state.defaults ?: WhisparrDefaults(null, null)

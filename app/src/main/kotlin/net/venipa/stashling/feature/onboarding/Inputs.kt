@@ -29,6 +29,7 @@ import net.venipa.stashling.core.whisparr.WhisparrError
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.fieldColors
 import net.venipa.stashling.ds.fieldShape
+import net.venipa.stashling.ds.stableFieldHeight
 import java.net.URI
 import java.net.UnknownServiceException
 import javax.net.ssl.SSLException
@@ -88,7 +89,7 @@ internal fun CredentialField(
     TextField(
         value,
         onValueChange,
-        modifier.fillMaxWidth(),
+        modifier.fillMaxWidth().stableFieldHeight(),
         label = { Text(label) },
         singleLine = true,
         isError = isError,

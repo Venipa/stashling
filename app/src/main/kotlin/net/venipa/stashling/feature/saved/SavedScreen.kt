@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.rememberScrollState
@@ -45,10 +46,12 @@ import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.PagedGrid
+import net.venipa.stashling.feature.common.PosterSkeleton
 import net.venipa.stashling.feature.common.PosterTile
 import net.venipa.stashling.feature.common.StashTopBar
 import net.venipa.stashling.feature.common.labelRes
 import net.venipa.stashling.feature.common.listPadding
+import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.nav.LocalDockInset
 import net.venipa.stashling.nav.SettingsAction
 
@@ -66,6 +69,22 @@ class SavedViewModel(private val c: AppContainer) : ViewModel() {
 
     val performers = PageLoader(viewModelScope, { it.id }) { p -> c.stash.performers(PerformerFilter(favoritesOnly = true), p) }
     val studios = PageLoader(viewModelScope, { it.id }) { p -> c.stash.studios(StudioFilter(favoritesOnly = true), p) }
+
+    // Scroll positions survive tab switches: this ViewModel is Activity-scoped.
+    val sceneGrid = LazyGridState()
+    val remoteGrids = mapOf(BookmarkKind.PERFORMER to LazyGridState(), BookmarkKind.STUDIO to LazyGridState())
+    val localGrids = BookmarkKind.entries.associateWith { LazyGridState() }
+
+    /** Pull to refresh on the StashDB favorites grids. */
+    fun refreshRemote() {
+        if (kind.value == BookmarkKind.PERFORMER) {
+            c.stash.invalidate("erformers|")
+            performers.refresh()
+        } else {
+            c.stash.invalidate("tudios|")
+            studios.refresh()
+        }
+    }
 
     fun selectKind(k: BookmarkKind) {
         kind.value = k
@@ -91,7 +110,7 @@ fun SavedScreen(
     onOpenTag: (String) -> Unit,
 ) {
     val c = LocalAppContainer.current
-    val vm = viewModel { SavedViewModel(c) }
+    val vm = tabViewModel { SavedViewModel(c) }
     val kind by vm.kind.collectAsState()
     val byTitle by vm.byTitle.collectAsState()
     val remote by vm.remote.collectAsState()
@@ -123,6 +142,7 @@ fun SavedScreen(
                         listOf(stringResource(R.string.saved_sort_added), stringResource(R.string.saved_sort_title)),
                         if (byTitle) 1 else 0,
                         { vm.byTitle.value = it == 1 },
+                        Modifier.padding(horizontal = Space.L, vertical = Space.Xs),
                     )
                 }
             }
@@ -132,12 +152,12 @@ fun SavedScreen(
         if (remote) {
             if (kind == BookmarkKind.PERFORMER) {
                 val st by vm.performers.state.collectAsState()
-                PagedGrid(st, { it.id }, GridCells.Fixed(2), padding, vm.performers::loadMore, vm.performers::retry, stringResource(R.string.saved_empty_remote)) { _, p ->
+                PagedGrid(st, { it.id }, GridCells.Fixed(2), padding, vm.performers::loadMore, vm.performers::retry, stringResource(R.string.saved_empty_remote), gridState = vm.remoteGrids.getValue(kind), onRefresh = vm::refreshRemote) { _, p ->
                     PosterTile(p.name, null, (p.images.firstOrNull() ?: p.thumbnail)?.sized(300), 2f / 3f, { onOpenPerformer(p.id) })
                 }
             } else {
                 val st by vm.studios.state.collectAsState()
-                PagedGrid(st, { it.id }, GridCells.Fixed(2), padding, vm.studios::loadMore, vm.studios::retry, stringResource(R.string.saved_empty_remote)) { _, s ->
+                PagedGrid(st, { it.id }, GridCells.Fixed(2), padding, vm.studios::loadMore, vm.studios::retry, stringResource(R.string.saved_empty_remote), gridState = vm.remoteGrids.getValue(kind), onRefresh = vm::refreshRemote, skeleton = { _, _ -> PosterSkeleton(16f / 9f) }) { _, s ->
                     PosterTile(s.name, s.parent?.name, s.images.firstOrNull()?.sized(300), 16f / 9f, { onOpenStudio(s.id) }, fit = true)
                 }
             }
@@ -148,7 +168,7 @@ fun SavedScreen(
             } else {
                 LazyVerticalGrid(
                     GridCells.Fixed(2),
-                    Modifier,
+                    state = vm.localGrids.getValue(kind),
                     contentPadding = padding,
                     verticalArrangement = Arrangement.spacedBy(Space.M),
                     horizontalArrangement = Arrangement.spacedBy(Space.M),

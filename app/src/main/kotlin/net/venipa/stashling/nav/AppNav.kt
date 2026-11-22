@@ -32,6 +32,7 @@ import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.ds.DockTab
 import net.venipa.stashling.ds.GlassDock
+import net.venipa.stashling.ds.LocalGlass
 import net.venipa.stashling.ds.LocalReduceMotion
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TransitionSpecs
@@ -116,7 +117,7 @@ fun AppNav(
     val navigator = remember(backStack) { Navigator(push = { backStack.add(it) }, pop = { backStack.removeLastOrNull() }) }
 
     Box(Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalNavigator provides navigator, LocalDockInset provides dockInset) {
+        CompositionLocalProvider(LocalNavigator provides navigator, LocalDockInset provides dockInset, LocalGlass provides glass) {
             NavDisplay(
                 backStack = backStack,
                 modifier = Modifier.fillMaxSize().glassSource(glass),

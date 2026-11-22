@@ -13,9 +13,11 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
@@ -25,8 +27,10 @@ import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.lazy.grid.LazyGridScope
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.grid.itemsIndexed
 import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -37,7 +41,10 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -47,12 +54,16 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.graphics.vector.addPathNodes
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import coil3.compose.AsyncImage
+import coil3.compose.AsyncImagePainter
+import coil3.request.ImageRequest
+import coil3.request.crossfade
 import kotlinx.coroutines.flow.filter
 import net.venipa.stashling.R
 import net.venipa.stashling.core.data.BookmarkKind
@@ -61,11 +72,17 @@ import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.StashError
 import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.EmptyState
-import net.venipa.stashling.ds.Loading
+import net.venipa.stashling.ds.LoadingPill
+import net.venipa.stashling.ds.LoadingSkeleton
+import net.venipa.stashling.ds.PagingFooter
+import net.venipa.stashling.ds.RefreshBox
+import net.venipa.stashling.ds.SkeletonBox
+import net.venipa.stashling.ds.SkeletonText
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.concentric
 import net.venipa.stashling.ds.concentricShape
+import net.venipa.stashling.ds.shimmer
 import net.venipa.stashling.nav.LocalNavigator
 import net.venipa.stashling.nav.OnboardingRoute
 
@@ -113,7 +130,7 @@ fun groupShape(index: Int, count: Int, outer: Dp = 16.dp, inner: Dp = 4.dp): Rou
     return RoundedCornerShape(topStart = top, topEnd = top, bottomEnd = bottom, bottomStart = bottom)
 }
 
-/** Every URL passes through [net.venipa.stashling.core.stash.Image.sized] before it gets here. */
+/** Every URL passes through [net.venipa.stashling.core.stash.Image.sized] before it gets here. Shimmer while Coil loads, then a crossfade. */
 @Composable
 fun StashImage(
     url: String?,
@@ -121,8 +138,13 @@ fun StashImage(
     contentDescription: String? = null,
     scale: ContentScale = ContentScale.Crop,
 ) {
-    Box(modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh)) {
-        if (url != null) AsyncImage(url, contentDescription, Modifier.fillMaxSize(), contentScale = scale)
+    var loading by remember(url) { mutableStateOf(url != null) }
+    val context = LocalContext.current
+    val request = remember(url) { ImageRequest.Builder(context).data(url).crossfade(true).build() }
+    Box(modifier.then(if (loading) Modifier.shimmer() else Modifier.background(MaterialTheme.colorScheme.surfaceContainerHigh))) {
+        if (url != null) {
+            AsyncImage(request, contentDescription, Modifier.fillMaxSize(), contentScale = scale, onState = { loading = it is AsyncImagePainter.State.Loading || it is AsyncImagePainter.State.Empty })
+        }
     }
 }
 
@@ -145,6 +167,46 @@ fun Tile(
         .padding(CardPad),
     verticalArrangement = Arrangement.spacedBy(Space.S),
 ) { content() }
+
+/** Skeleton of [PosterTile]: the same card, concentric image block, two text lines. */
+@Composable
+fun PosterSkeleton(aspect: Float) = Column(
+    Modifier.fillMaxWidth().clip(RoundedCornerShape(CardOuter)).background(MaterialTheme.colorScheme.surfaceContainer).padding(CardPad),
+    verticalArrangement = Arrangement.spacedBy(Space.S),
+) {
+    SkeletonBox(Modifier.fillMaxWidth().aspectRatio(aspect), concentricShape(CardOuter, CardPad))
+    SkeletonText(Modifier.padding(horizontal = Space.S).padding(bottom = Space.S), 2)
+}
+
+/** Skeleton of [SceneCardTile] (16:9 card). */
+@Composable
+fun SceneCardSkeleton() = PosterSkeleton(16f / 9f)
+
+/** Skeleton of [SceneRow]: the row's grouped corners and per-corner concentric thumb. */
+@Composable
+fun SceneRowSkeleton(index: Int, count: Int) = Row(
+    Modifier.fillMaxWidth().clip(groupShape(index, count)).background(MaterialTheme.colorScheme.surfaceContainer).padding(CardPad),
+    horizontalArrangement = Arrangement.spacedBy(Space.M),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    val thumb = RoundedCornerShape(
+        topStart = concentric(if (index == 0) CardOuter else 4.dp, CardPad),
+        topEnd = concentric(CardOuter, CardPad),
+        bottomEnd = concentric(CardOuter, CardPad),
+        bottomStart = concentric(if (index == count - 1) CardOuter else 4.dp, CardPad),
+    )
+    SkeletonBox(Modifier.width(112.dp).aspectRatio(16f / 9f), thumb)
+    SkeletonText(Modifier.weight(1f), 3)
+}
+
+/** Detail screen skeleton: hero image block (16:9) and text lines. */
+@Composable
+fun DetailSkeleton() = Column(Modifier.fillMaxSize().padding(Space.L), verticalArrangement = Arrangement.spacedBy(Space.L)) {
+    Spacer(Modifier.statusBarsPadding().height(48.dp))
+    SkeletonBox(Modifier.fillMaxWidth().aspectRatio(16f / 9f), RoundedCornerShape(28.dp))
+    SkeletonBox(Modifier.fillMaxWidth(0.7f).height(24.dp), CircleShape)
+    SkeletonText(lines = 4)
+}
 
 /** A poster tile (performer/tag 2:3, studio 16:9 contained): image inside the card at the concentric radius, text below. A null [imageUrl] draws a plain panel. */
 @Composable
@@ -245,9 +307,6 @@ fun ErrorState(
 }
 
 @Composable
-fun CenteredLoading() = Box(Modifier.fillMaxWidth().padding(Space.L), contentAlignment = Alignment.Center) { Loading() }
-
-@Composable
 fun LoadMoreEffect(
     state: LazyGridState,
     enabled: Boolean,
@@ -264,7 +323,10 @@ fun LoadMoreEffect(
     }
 }
 
-/** Paged grid: stable keys, next page near the end, spinner footer, ErrorState (retry or sign-in) when a page fails. */
+/**
+ * Paged grid: stable keys, next page near the end, [PagingFooter] at the end, ErrorState (retry or sign-in) when the first page fails.
+ * First load with no data: [skeleton] tiles in the same grid plus the loading pill. [onRefresh] adds pull to refresh over the existing items.
+ */
 @Composable
 fun <T> PagedGrid(
     state: PagedState<T>,
@@ -278,26 +340,40 @@ fun <T> PagedGrid(
     gridState: LazyGridState = rememberLazyGridState(),
     spacing: Dp = Space.M,
     header: (LazyGridScope.() -> Unit)? = null,
+    onRefresh: (() -> Unit)? = null,
+    skeleton: @Composable (index: Int, count: Int) -> Unit = { _, _ -> PosterSkeleton(2f / 3f) },
     item: @Composable (index: Int, item: T) -> Unit,
 ) {
     LoadMoreEffect(gridState, state.hasNext && !state.loading && state.error == null, onMore)
-    LazyVerticalGrid(
-        columns,
-        modifier.fillMaxSize(),
-        gridState,
-        contentPadding,
-        verticalArrangement = Arrangement.spacedBy(spacing),
-        horizontalArrangement = Arrangement.spacedBy(spacing),
-    ) {
-        header?.invoke(this)
-        itemsIndexed(state.items, key = { _, it -> key(it) }) { i, it -> item(i, it) }
-        if (state.items.isEmpty() && !state.loading && state.error == null && state.started) {
-            fullSpan("empty") { EmptyState(StashlingIcons.Search, emptyText) }
+    val firstLoad = state.items.isEmpty() && state.error == null && (state.loading || !state.started)
+    val grid: @Composable () -> Unit = {
+        LazyVerticalGrid(
+            columns,
+            Modifier.fillMaxSize(),
+            gridState,
+            contentPadding,
+            verticalArrangement = Arrangement.spacedBy(spacing),
+            horizontalArrangement = Arrangement.spacedBy(spacing),
+        ) {
+            header?.invoke(this)
+            if (firstLoad) items(SKELETON_COUNT, key = { "skeleton$it" }) { skeleton(it, SKELETON_COUNT) }
+            itemsIndexed(state.items, key = { _, it -> key(it) }) { i, it -> item(i, it) }
+            if (state.items.isEmpty() && !state.loading && state.error == null && state.started) {
+                fullSpan("empty") { EmptyState(StashlingIcons.Search, emptyText) }
+            }
+            if (state.items.isNotEmpty() && (state.loading || state.error != null)) {
+                fullSpan("footer") { PagingFooter(state.loading, state.error != null, onRetry) }
+            }
+            if (state.items.isEmpty()) state.error?.let { e -> fullSpan("error") { ErrorState(e, onRetry) } }
         }
-        if (state.loading) fullSpan("loading") { CenteredLoading() }
-        state.error?.let { e -> fullSpan("error") { ErrorState(e, onRetry) } }
+    }
+    Box(modifier.fillMaxSize()) {
+        if (onRefresh != null) RefreshBox(state.refreshing, onRefresh, Modifier.fillMaxSize()) { grid() } else grid()
+        LoadingPill(firstLoad, Modifier.align(Alignment.Center))
     }
 }
+
+private const val SKELETON_COUNT = 8
 
 fun LazyGridScope.fullSpan(
     key: String,
@@ -316,6 +392,7 @@ fun ScenesGrid(
     modifier: Modifier = Modifier,
     gridState: LazyGridState = rememberLazyGridState(),
     header: (LazyGridScope.() -> Unit)? = null,
+    onRefresh: (() -> Unit)? = null,
 ) = PagedGrid(
     state,
     { it.id },
@@ -328,6 +405,8 @@ fun ScenesGrid(
     gridState = gridState,
     spacing = if (mode == ListMode.CARDS) Space.M else 2.dp,
     header = header,
+    onRefresh = onRefresh,
+    skeleton = { i, n -> if (mode == ListMode.CARDS) SceneCardSkeleton() else SceneRowSkeleton(i, n) },
 ) { i, s ->
     if (mode == ListMode.CARDS) SceneCardTile(s) { onOpen(s.id) } else SceneRow(s, i, state.items.size) { onOpen(s.id) }
 }
@@ -366,9 +445,15 @@ fun <T> LoadGate(
     onRetry: () -> Unit,
     content: @Composable (T) -> Unit,
 ) = when (load) {
-    Load.Loading -> FullScreenState(onBack) { Loading() }
+    Load.Loading -> Box(Modifier.fillMaxSize()) {
+        LoadingSkeleton(Modifier.fillMaxSize()) { DetailSkeleton() }
+        BackOverlay(onBack)
+    }
+
     Load.NotFound -> FullScreenState(onBack) { EmptyState(StashlingIcons.Search, stringResource(R.string.detail_not_found)) }
+
     is Load.Failed -> FullScreenState(onBack) { ErrorState(load.error, onRetry) }
+
     is Load.Data -> content(load.value)
 }
 

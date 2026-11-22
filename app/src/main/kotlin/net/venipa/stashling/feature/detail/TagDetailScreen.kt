@@ -62,6 +62,13 @@ class TagDetailViewModel(private val id: String, private val c: AppContainer) : 
             if (_state.value is Load.Data) scenes.reload()
         }
     }
+
+    fun refresh() {
+        c.stash.invalidate(id)
+        c.stash.invalidate("scenes|")
+        scenes.refresh()
+        viewModelScope.launch { (loadOf { c.stash.tag(id) } as? Load.Data)?.let { _state.value = it } }
+    }
 }
 
 /** Tag: category, aliases, description and its scenes. */
@@ -88,7 +95,7 @@ fun TagDetailScreen(
                 })
             },
         ) { pad ->
-            ScenesGrid(scenes, mode, listPadding(pad), vm.scenes::loadMore, vm.scenes::retry, onOpenScene, header = {
+            ScenesGrid(scenes, mode, listPadding(pad), vm.scenes::loadMore, vm.scenes::retry, onOpenScene, onRefresh = vm::refresh, header = {
                 fullSpan("info") {
                     Column(verticalArrangement = Arrangement.spacedBy(Space.L)) {
                         if (t.category != null || t.aliases.isNotEmpty()) {

@@ -95,6 +95,8 @@ val expectedPermissions =
         "android.permission.ACCESS_NETWORK_STATE",
         // Download notifications (Whisparr watch).
         "android.permission.POST_NOTIFICATIONS",
+        // Android 17 local network protection: LAN Whisparr.
+        "android.permission.ACCESS_LOCAL_NETWORK",
         // androidx.biometric (app lock).
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",

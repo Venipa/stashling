@@ -19,7 +19,6 @@ import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.core.data.StashAccount
 import net.venipa.stashling.ds.ActionButton
-import net.venipa.stashling.ds.Loading
 import net.venipa.stashling.ds.StashSegmented
 
 private const val DEFAULT_URL = "https://stashdb.org"
@@ -78,7 +77,7 @@ internal fun StashStep(
         stringResource(R.string.onboarding_stash_title),
         stringResource(R.string.onboarding_stash_body),
         actions = {
-            ActionButton(finishLabel ?: stringResource(R.string.onboarding_continue), ::submit, enabled = !busy && (verified || mode == 1 || apiKey.isNotBlank()))
+            ActionButton(finishLabel ?: stringResource(R.string.onboarding_continue), ::submit, enabled = verified || mode == 1 || apiKey.isNotBlank(), loading = busy, loadingText = stringResource(R.string.onboarding_verifying))
         },
     ) {
         StashSegmented(
@@ -113,6 +112,5 @@ internal fun StashStep(
             TextButton({ custom = true }, Modifier.fillMaxWidth()) { Text(stringResource(R.string.onboarding_custom_server)) }
         }
         error?.let { Text(stringResource(it), color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
-        if (busy) Loading()
     }
 }

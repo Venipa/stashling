@@ -2,6 +2,10 @@ package net.venipa.stashling.feature.settings
 
 import android.text.format.Formatter
 import androidx.activity.compose.LocalActivity
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
@@ -16,8 +20,10 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.unit.dp
 import androidx.fragment.app.FragmentActivity
 import coil3.SingletonImageLoader
 import kotlinx.coroutines.Dispatchers
@@ -36,11 +42,13 @@ import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.ConfirmSheet
 import net.venipa.stashling.ds.GroupRow
 import net.venipa.stashling.ds.Gutter
-import net.venipa.stashling.ds.Loading
+import net.venipa.stashling.ds.LoadingSkeleton
 import net.venipa.stashling.ds.SectionHeader
+import net.venipa.stashling.ds.SkeletonBox
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
+import net.venipa.stashling.ds.groupItemShape
 import net.venipa.stashling.feature.lock.authenticate
 import net.venipa.stashling.feature.lock.canAuthenticate
 
@@ -206,7 +214,11 @@ internal fun WhisparrDefaultsPage(
     }
     SettingsPage(stringResource(R.string.settings_whisparr_defaults), onBack) {
         if (roots == null) {
-            Loading(Gutter)
+            LoadingSkeleton(Gutter) {
+                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                    repeat(3) { SkeletonBox(Modifier.fillMaxWidth().height(72.dp), groupItemShape(it, 3)) }
+                }
+            }
         } else {
             if (failed) {
                 Text(stringResource(R.string.settings_whisparr_unreachable), Gutter, color = MaterialTheme.colorScheme.error)

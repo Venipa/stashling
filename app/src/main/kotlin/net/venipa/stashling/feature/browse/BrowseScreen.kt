@@ -42,13 +42,16 @@ import net.venipa.stashling.core.stash.SortDirection
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.fieldColors
+import net.venipa.stashling.ds.stableFieldHeight
 import net.venipa.stashling.feature.common.ListModeToggle
 import net.venipa.stashling.feature.common.PagedGrid
+import net.venipa.stashling.feature.common.PosterSkeleton
 import net.venipa.stashling.feature.common.PosterTile
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashTopBar
 import net.venipa.stashling.feature.common.listPadding
 import net.venipa.stashling.feature.common.rememberSceneListMode
+import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.nav.LocalDockInset
 import net.venipa.stashling.nav.SettingsAction
 
@@ -91,7 +94,7 @@ fun BrowseScreen(
     onOpenTag: (String) -> Unit,
 ) {
     val c = LocalAppContainer.current
-    val vm = viewModel { BrowseViewModel(c.stash) }
+    val vm = tabViewModel { BrowseViewModel(c.stash) }
     val kind by vm.kind.collectAsState()
     val f by vm.filters.collectAsState()
     val labels by vm.labels.collectAsState()
@@ -113,7 +116,7 @@ fun BrowseScreen(
                         text = it
                         vm.query.value = it
                     },
-                    Modifier.fillMaxWidth().padding(horizontal = Space.L),
+                    Modifier.fillMaxWidth().stableFieldHeight().padding(horizontal = Space.L),
                     singleLine = true,
                     shape = CircleShape,
                     colors = fieldColors(),
@@ -183,26 +186,26 @@ fun BrowseScreen(
             when (kind) {
                 BrowseKind.Scenes -> {
                     val st by vm.scenes.state.collectAsState()
-                    ScenesGrid(st, mode, padding, vm::loadMore, vm::retry, onOpenScene)
+                    ScenesGrid(st, mode, padding, vm::loadMore, vm::retry, onOpenScene, gridState = vm.gridStates.getValue(kind), onRefresh = vm::refresh)
                 }
 
                 BrowseKind.Performers -> {
                     val st by vm.performers.state.collectAsState()
-                    PagedGrid(st, { it.id }, GridCells.Adaptive(150.dp), padding, vm::loadMore, vm::retry, stringResource(R.string.browse_empty)) { _, p ->
+                    PagedGrid(st, { it.id }, GridCells.Adaptive(150.dp), padding, vm::loadMore, vm::retry, stringResource(R.string.browse_empty), gridState = vm.gridStates.getValue(kind), onRefresh = vm::refresh) { _, p ->
                         PosterTile(p.name, stringResource(R.string.browse_scenes_count, p.sceneCount), (p.images.firstOrNull() ?: p.thumbnail)?.sized(300), 2f / 3f, { onOpenPerformer(p.id) })
                     }
                 }
 
                 BrowseKind.Studios -> {
                     val st by vm.studios.state.collectAsState()
-                    PagedGrid(st, { it.id }, GridCells.Adaptive(160.dp), padding, vm::loadMore, vm::retry, stringResource(R.string.browse_empty)) { _, s ->
+                    PagedGrid(st, { it.id }, GridCells.Adaptive(160.dp), padding, vm::loadMore, vm::retry, stringResource(R.string.browse_empty), gridState = vm.gridStates.getValue(kind), onRefresh = vm::refresh, skeleton = { _, _ -> PosterSkeleton(16f / 9f) }) { _, s ->
                         PosterTile(s.name, s.parent?.name, s.images.firstOrNull()?.sized(300), 16f / 9f, { onOpenStudio(s.id) }, fit = true)
                     }
                 }
 
                 BrowseKind.Tags -> {
                     val st by vm.tags.state.collectAsState()
-                    PagedGrid(st, { it.id }, GridCells.Adaptive(150.dp), padding, vm::loadMore, vm::retry, stringResource(R.string.browse_empty)) { _, t ->
+                    PagedGrid(st, { it.id }, GridCells.Adaptive(150.dp), padding, vm::loadMore, vm::retry, stringResource(R.string.browse_empty), gridState = vm.gridStates.getValue(kind), onRefresh = vm::refresh) { _, t ->
                         PosterTile(t.name, t.category, null, 2f / 3f, { onOpenTag(t.id) })
                     }
                 }

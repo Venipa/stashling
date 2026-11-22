@@ -87,6 +87,13 @@ class PerformerDetailViewModel(startId: String, private val c: AppContainer) : V
         }
     }
 
+    fun refresh() {
+        c.stash.invalidate(id.value)
+        c.stash.invalidate("scenes|")
+        scenes.refresh()
+        viewModelScope.launch { (loadOf { follow() } as? Load.Data)?.let { _state.value = it } }
+    }
+
     /** A merged performer redirects to its target (at most 3 hops); a bookmark on the old id moves along. */
     private suspend fun follow(): Performer? {
         var cur = id.value
@@ -148,7 +155,7 @@ fun PerformerDetailScreen(
             },
             snackbarHost = { SnackbarHost(snackbar) { AppSnackbar(it) } },
         ) { pad ->
-            ScenesGrid(scenes, mode, listPadding(pad), vm.scenes::loadMore, vm.scenes::retry, onOpenScene, header = {
+            ScenesGrid(scenes, mode, listPadding(pad), vm.scenes::loadMore, vm.scenes::retry, onOpenScene, onRefresh = vm::refresh, header = {
                 if (p.images.isNotEmpty()) {
                     fullSpan("images") {
                         LazyRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {

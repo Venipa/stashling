@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -20,6 +21,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
@@ -45,15 +49,19 @@ import net.venipa.stashling.ds.AppBottomSheet
 import net.venipa.stashling.ds.CardTone
 import net.venipa.stashling.ds.EmptyState
 import net.venipa.stashling.ds.HeroCardRadius
-import net.venipa.stashling.ds.Loading
+import net.venipa.stashling.ds.LongOperationCard
 import net.venipa.stashling.ds.PillTone
 import net.venipa.stashling.ds.SheetRadius
+import net.venipa.stashling.ds.SkeletonBox
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.StatusPill
 import net.venipa.stashling.ds.TonalCard
 import net.venipa.stashling.ds.concentric
+import net.venipa.stashling.ds.concentricShape
 import net.venipa.stashling.ds.groupItemShape
+import net.venipa.stashling.feature.common.LocalNetworkNotice
+import net.venipa.stashling.feature.common.localNetworkMissing
 
 /** Inline tonal card under the scene hero. Renders nothing while Whisparr is not connected. */
 @Composable
@@ -83,7 +91,7 @@ fun WhisparrPanel(
         when (s) {
             PanelState.Unavailable -> Unit
 
-            PanelState.Loading -> Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) { Loading(Modifier.size(48.dp)) }
+            PanelState.Loading -> SkeletonBox(Modifier.fillMaxWidth().height(56.dp), concentricShape(HeroCardRadius, 20.dp))
 
             is PanelState.NotInLibrary -> {
                 if (s.excluded) Text(stringResource(R.string.whisparr_excluded), style = MaterialTheme.typography.bodyMedium)
@@ -121,7 +129,7 @@ fun WhisparrPanel(
             }
 
             is PanelState.Error -> {
-                Text(s.message.ifBlank { stringResource(R.string.whisparr_error) }, style = MaterialTheme.typography.bodyMedium)
+                if (LocalContext.current.localNetworkMissing()) LocalNetworkNotice() else Text(s.message.ifBlank { stringResource(R.string.whisparr_error) }, style = MaterialTheme.typography.bodyMedium)
                 ButtonGroup(listOf(PanelButton(stringResource(R.string.whisparr_retry), vm::retry, tonal = true)), enabled = !busy)
             }
         }
@@ -209,8 +217,13 @@ private fun ButtonGroup(
     buttons: List<PanelButton>,
     enabled: Boolean,
 ) = Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    // The pressed button shows the loading state while an action runs; the others stay disabled.
+    var active by remember { mutableIntStateOf(-1) }
     buttons.forEachIndexed { i, b ->
-        ActionButton(b.text, b.onClick, enabled = enabled, tonal = b.tonal, icon = b.icon, shape = groupItemShape(i, buttons.size, outer = concentric(HeroCardRadius, 20.dp)))
+        ActionButton(b.text, {
+            active = i
+            b.onClick()
+        }, enabled = enabled || active == i, loading = !enabled && active == i, tonal = b.tonal, icon = b.icon, shape = groupItemShape(i, buttons.size, outer = concentric(HeroCardRadius, 20.dp)))
     }
 }
 
@@ -225,11 +238,7 @@ private fun ReleaseSheet(
         ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
         if (ui.expired) Text(stringResource(R.string.whisparr_releases_expired), style = MaterialTheme.typography.bodyMedium)
         when {
-            ui.loading ->
-                Column(Modifier.fillMaxWidth().padding(vertical = Space.Xl), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Space.M)) {
-                    Loading()
-                    Text(stringResource(R.string.whisparr_releases_loading), style = MaterialTheme.typography.bodyMedium)
-                }
+            ui.loading -> LongOperationCard(stringResource(R.string.whisparr_searching_releases), ui.startedAt, onDismiss, Modifier.padding(vertical = Space.M))
 
             ui.items.isEmpty() && ui.error == null -> EmptyState(StashlingIcons.Search, stringResource(R.string.whisparr_releases_empty))
 

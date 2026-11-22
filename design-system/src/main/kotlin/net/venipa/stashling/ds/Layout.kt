@@ -1,6 +1,7 @@
 package net.venipa.stashling.ds
 
 import androidx.compose.animation.animateColorAsState
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -11,6 +12,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -18,16 +20,22 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.CornerBasedShape
+import androidx.compose.foundation.shape.CornerSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.LoadingIndicator
+import androidx.compose.material3.LocalContentColor
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -35,14 +43,22 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.RoundRect
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Outline
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.Density
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 
 // Medicatore layout pieces (DESIGN.md): tonal surfaces, no borders, 16dp gutters, 56dp actions.
@@ -155,7 +171,8 @@ fun GroupRow(
     )
 }
 
-/** The 56dp primary action; [tonal] for the secondary one. */
+/** The 56dp primary action; [tonal] for the secondary one. [loading]: pressed shape, indicator + [loadingText], a progress sweep on the bottom edge, no clicks, same size. */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun ActionButton(
     text: String,
@@ -165,18 +182,62 @@ fun ActionButton(
     tonal: Boolean = false,
     icon: ImageVector? = null,
     shape: Shape? = null,
+    loading: Boolean = false,
+    loadingText: String? = null,
 ) {
+    val cs = MaterialTheme.colorScheme
+    val rest = shape ?: if (tonal) ButtonDefaults.filledTonalShape else ButtonDefaults.shape
+    // A custom (grouped) shape is kept as is: only the default shape morphs.
+    val morph by animateFloatAsState(if (loading && shape == null) 1f else 0f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "buttonMorph")
+    val current = if (shape != null) shape else MorphShape(rest, ButtonDefaults.pressedShape, morph)
     val content: @Composable () -> Unit = {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
-            icon?.let { Icon(it, null, Modifier.size(20.dp)) }
-            Text(text, style = MaterialTheme.typography.labelLarge)
+            if (loading) {
+                LoadingIndicator(Modifier.size(24.dp), LocalContentColor.current)
+            } else {
+                icon?.let { Icon(it, null, Modifier.size(20.dp)) }
+            }
+            Text(if (loading) loadingText ?: text else text, style = MaterialTheme.typography.labelLarge)
         }
     }
-    val m = modifier.fillMaxWidth().heightIn(min = 56.dp)
-    if (tonal) {
-        FilledTonalButton(onClick, m, enabled, shape = shape ?: ButtonDefaults.filledTonalShape) { content() }
-    } else {
-        Button(onClick, m, enabled, shape = shape ?: ButtonDefaults.shape) { content() }
+    val go = { if (!loading) onClick() }
+    val m = Modifier.fillMaxWidth().heightIn(min = 56.dp)
+    Box(modifier.semantics { if (loading) stateDescription = loadingText ?: text }) {
+        if (tonal) {
+            FilledTonalButton(go, m, enabled, shape = current) { content() }
+        } else {
+            Button(go, m, enabled, shape = current) { content() }
+        }
+        if (loading) {
+            Box(Modifier.matchParentSize().clip(current), contentAlignment = Alignment.BottomCenter) {
+                LinearProgressIndicator(Modifier.fillMaxWidth().height(3.dp), if (tonal) cs.onSecondaryContainer else cs.onPrimary, Color.Transparent)
+            }
+        }
+    }
+}
+
+/** Corner radii interpolated between two corner-based shapes (start/end aware); other shapes snap at the midpoint. */
+private class MorphShape(
+    val from: Shape,
+    val to: Shape,
+    val t: Float,
+) : Shape {
+    override fun createOutline(
+        size: Size,
+        layoutDirection: LayoutDirection,
+        density: Density,
+    ): Outline {
+        if (from !is CornerBasedShape || to !is CornerBasedShape) return (if (t < 0.5f) from else to).createOutline(size, layoutDirection, density)
+        fun r(
+            a: CornerSize,
+            b: CornerSize,
+        ) = CornerRadius((a.toPx(size, density) * (1 - t) + b.toPx(size, density) * t).coerceAtLeast(0f))
+        val ts = r(from.topStart, to.topStart)
+        val te = r(from.topEnd, to.topEnd)
+        val be = r(from.bottomEnd, to.bottomEnd)
+        val bs = r(from.bottomStart, to.bottomStart)
+        val rtl = layoutDirection == LayoutDirection.Rtl
+        return Outline.Rounded(RoundRect(0f, 0f, size.width, size.height, if (rtl) te else ts, if (rtl) ts else te, if (rtl) bs else be, if (rtl) be else bs))
     }
 }
 

@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import net.venipa.stashling.core.data.BookmarkRepository
 import net.venipa.stashling.core.data.RoomBookmarkRepository
 import net.venipa.stashling.core.data.SecretStore
@@ -17,7 +18,7 @@ import net.venipa.stashling.core.data.SecretStoreImpl
 import net.venipa.stashling.core.data.SettingsStore
 import net.venipa.stashling.core.data.SettingsStoreImpl
 import net.venipa.stashling.core.data.StashlingDatabase
-import net.venipa.stashling.core.stash.StashDbApi
+import net.venipa.stashling.core.stash.CachingStashDbApi
 import net.venipa.stashling.core.stash.StashDbClient
 import net.venipa.stashling.core.stash.newStashHttpClient
 import net.venipa.stashling.core.whisparr.WhisparrClients
@@ -36,7 +37,12 @@ class AppContainer(context: Context) {
     val bookmarks: BookmarkRepository by lazy { RoomBookmarkRepository(db.bookmarks()) }
 
     // StashDB: its own client (https only, no redirects); the key is read per call, so a re-login needs no rebuild.
-    val stash: StashDbApi = StashDbClient(newStashHttpClient()) { secrets.stash.value }
+    // Cached: renavigating never refetches; pull-to-refresh calls stash.invalidate(). A new account starts empty.
+    val stash = CachingStashDbApi(StashDbClient(newStashHttpClient()) { secrets.stash.value })
+
+    init {
+        appScope.launch { secrets.stash.collect { stash.invalidate() } }
+    }
 
     val appLock by lazy { AppLockController(settings.settings, appScope) }
 

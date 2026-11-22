@@ -1,5 +1,6 @@
 package net.venipa.stashling.feature.browse
 
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
@@ -11,11 +12,11 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.venipa.stashling.R
+import net.venipa.stashling.core.stash.CachingStashDbApi
 import net.venipa.stashling.core.stash.Performer
 import net.venipa.stashling.core.stash.PerformerFilter
 import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.SceneFilter
-import net.venipa.stashling.core.stash.StashDbApi
 import net.venipa.stashling.core.stash.Studio
 import net.venipa.stashling.core.stash.StudioFilter
 import net.venipa.stashling.core.stash.Tag
@@ -39,7 +40,7 @@ data class Filters(
 
 private data class Spec(val kind: BrowseKind, val query: String, val filter: Any)
 
-class BrowseViewModel(private val stash: StashDbApi) : ViewModel() {
+class BrowseViewModel(private val stash: CachingStashDbApi) : ViewModel() {
     val kind = MutableStateFlow(BrowseKind.Scenes)
     val query = MutableStateFlow("")
     val filters = MutableStateFlow(Filters())
@@ -100,6 +101,18 @@ class BrowseViewModel(private val stash: StashDbApi) : ViewModel() {
         BrowseKind.Performers -> performers.loadMore()
         BrowseKind.Studios -> studios.loadMore()
         BrowseKind.Tags -> tags.loadMore()
+    }
+
+    val gridStates = BrowseKind.entries.associateWith { LazyGridState() }
+
+    /** Pull to refresh: drop this kind's cached pages, then reload page 1 keeping what is shown. */
+    fun refresh() {
+        when (kind.value) {
+            BrowseKind.Scenes -> stash.invalidate("cenes|").also { scenes.refresh() }
+            BrowseKind.Performers -> stash.invalidate("erformers|").also { performers.refresh() }
+            BrowseKind.Studios -> stash.invalidate("tudios|").also { studios.refresh() }
+            BrowseKind.Tags -> stash.invalidate("tags|").also { tags.refresh() }
+        }
     }
 
     fun update(transform: (Filters) -> Filters) = filters.update(transform)

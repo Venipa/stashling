@@ -35,14 +35,15 @@ import net.venipa.stashling.R
 import net.venipa.stashling.core.stash.DateBound
 import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.AppBottomSheet
-import net.venipa.stashling.ds.Loading
 import net.venipa.stashling.ds.SectionHeader
+import net.venipa.stashling.ds.SkeletonText
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.fieldColors
 import net.venipa.stashling.ds.fieldShape
 import net.venipa.stashling.ds.sheetTitle
+import net.venipa.stashling.ds.stableFieldHeight
 import net.venipa.stashling.feature.common.groupShape
 import java.time.LocalDate
 
@@ -131,10 +132,10 @@ fun PickerSheet(
         }
     }
     SheetColumn(title) {
-        TextField(q, { q = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(stringResource(R.string.browse_search_hint)) }, shape = fieldShape(), colors = fieldColors())
+        TextField(q, { q = it }, Modifier.fillMaxWidth().stableFieldHeight(), singleLine = true, placeholder = { Text(stringResource(R.string.browse_search_hint)) }, shape = fieldShape(), colors = fieldColors())
         header()
         when (val r = result) {
-            PickResult.Loading -> Loading(Modifier.align(Alignment.CenterHorizontally))
+            PickResult.Loading -> SkeletonText(Modifier.padding(vertical = Space.M), 3)
 
             PickResult.Failed -> Text(stringResource(R.string.browse_error_generic), color = MaterialTheme.colorScheme.error)
 
@@ -165,7 +166,7 @@ fun DateSheet(
         TextField(
             text,
             { text = it },
-            Modifier.fillMaxWidth(),
+            Modifier.fillMaxWidth().stableFieldHeight(),
             singleLine = true,
             label = { Text(stringResource(R.string.browse_date_hint)) },
             isError = text.isNotEmpty() && !valid,

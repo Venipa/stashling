@@ -135,4 +135,9 @@
     <string name="settings_licence">Licence</string>
     <string name="settings_licence_value">GNU GPL-3.0</string>
     <string name="settings_about_body">A personal browser for StashDB and Whisparr. Free software, no tracking, no Google services.</string>
+    <string name="local_network_needed">Stashling needs Local network access to reach Whisparr on your network.</string>
+    <string name="local_network_open_settings">Open app settings</string>
+    <string name="onboarding_verifying">Verifying…</string>
+    <string name="onboarding_connecting">Connecting…</string>
+    <string name="whisparr_searching_releases">Searching indexers</string>
 </resources>

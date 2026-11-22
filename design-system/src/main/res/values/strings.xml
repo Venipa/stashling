@@ -2,4 +2,7 @@
     <string name="ds_view_cards">Show as cards</string>
     <string name="ds_view_rows">Show as rows</string>
     <string name="ds_cancel">Cancel</string>
+    <string name="ds_retry">Retry</string>
+    <string name="ds_load_more_failed">Could not load more</string>
+    <string name="ds_loading">Loading</string>
 </resources>

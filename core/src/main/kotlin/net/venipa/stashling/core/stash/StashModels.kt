@@ -120,6 +120,8 @@ data class SceneFilter(
     val performerIds: List<String> = emptyList(),
     val tagIds: List<String> = emptyList(),
     val allTags: Boolean = true,
+    /** Scenes without any of these tags. stash-box takes one modifier per field: ignored while [tagIds] is set. */
+    val excludeTagIds: List<String> = emptyList(),
     val date: DateBound? = null,
     val favorites: Favorites? = null,
     val sort: SceneSort = SceneSort.DATE,

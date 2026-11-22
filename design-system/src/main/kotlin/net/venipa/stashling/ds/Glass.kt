@@ -171,3 +171,6 @@ fun Modifier.glass(
         .hazeBlur(HazeInput.Sources(state.haze), styles.getValue(role))
         .then(if (role != GlassRole.Dock) Modifier else Modifier.border(1.dp, (if (dark) Color.White else Color.Black).copy(alpha = 0.10f), shape))
 }
+
+/** The app's glass state for floating pieces that are not given one (loading pill); null = tonal fallback. */
+val LocalGlass = androidx.compose.runtime.staticCompositionLocalOf<GlassState?> { null }

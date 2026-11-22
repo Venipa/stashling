@@ -85,6 +85,13 @@ class StudioDetailViewModel(private val id: String, private val c: AppContainer)
         }
     }
 
+    fun refresh() {
+        c.stash.invalidate(id)
+        c.stash.invalidate("scenes|")
+        scenes.refresh()
+        viewModelScope.launch { (loadOf { c.stash.studio(id) } as? Load.Data)?.let { _state.value = it } }
+    }
+
     private fun image(s: Studio) = s.images.firstOrNull()?.sized(300)
 
     fun toggleBookmark(s: Studio) = actions.toggleBookmark(s.name, s.parent?.name, image(s))
@@ -125,7 +132,7 @@ fun StudioDetailScreen(
             },
             snackbarHost = { SnackbarHost(snackbar) { AppSnackbar(it) } },
         ) { pad ->
-            ScenesGrid(scenes, mode, listPadding(pad), vm.scenes::loadMore, vm.scenes::retry, onOpenScene, header = {
+            ScenesGrid(scenes, mode, listPadding(pad), vm.scenes::loadMore, vm.scenes::retry, onOpenScene, onRefresh = vm::refresh, header = {
                 s.images.firstOrNull()?.let { img ->
                     fullSpan("logo") {
                         StashImage(img.sized(600), Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(concentricShape(16.dp, 0.dp)).clickable { onOpenGallery(0) }, s.name, ContentScale.Fit)

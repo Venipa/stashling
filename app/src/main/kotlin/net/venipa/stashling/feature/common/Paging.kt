@@ -16,6 +16,8 @@ data class PagedState<T>(
     val error: Throwable? = null,
     val hasNext: Boolean = true,
     val started: Boolean = false,
+    /** Pull to refresh: page 1 is reloading while the old items stay on screen. */
+    val refreshing: Boolean = false,
 )
 
 /** ViewModel page loader (1-based pages, 40 per page via the API default). An error stops auto-loading until [retry]. */
@@ -59,6 +61,24 @@ class PageLoader<T>(
         }
     }
 
+    /** Pull to refresh: keeps the shown items until page 1 arrives; a failure keeps them too. */
+    fun refresh() {
+        if (_state.value.refreshing) return
+        job?.cancel()
+        _state.update { it.copy(refreshing = true, loading = false, error = null) }
+        job = scope.launch {
+            try {
+                val p = fetch(1)
+                page = 1
+                _state.value = PagedState(p.items.distinctBy(key), hasNext = p.hasNext, started = true)
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(refreshing = false) }
+            }
+        }
+    }
+
     fun retry() {
         _state.update { it.copy(error = null) }
         loadMore()
@@ -83,3 +103,10 @@ suspend fun <T : Any> loadOf(block: suspend () -> T?): Load<T> = try {
 } catch (e: Exception) {
     Load.Failed(e)
 }
+
+/** ViewModel of a tab root: owned by the Activity, so filters, loaded pages and scroll survive tab switches (the nav stack is cleared). */
+@androidx.compose.runtime.Composable
+inline fun <reified VM : androidx.lifecycle.ViewModel> tabViewModel(noinline create: () -> VM): VM = androidx.lifecycle.viewmodel.compose.viewModel(
+    viewModelStoreOwner = androidx.activity.compose.LocalActivity.current as androidx.activity.ComponentActivity,
+    initializer = { create() },
+)

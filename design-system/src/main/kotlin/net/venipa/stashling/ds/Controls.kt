@@ -14,11 +14,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextFieldColors
@@ -35,6 +33,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
@@ -77,7 +76,8 @@ fun StashSegmented(
                     val gap = SegmentGap.toPx()
                     val w = (size.width - gap * (count - 1)) / count
                     val r = SegmentRadius.toPx()
-                    val x = position * (w + gap)
+                    // Spring may overshoot: clamp so the indicator never leaves the track.
+                    val x = (position * (w + gap)).coerceIn(0f, size.width - w)
                     val left = if (layoutDirection == LayoutDirection.Rtl) size.width - x - w else x
                     drawRoundRect(indicator, Offset(left, 0f), Size(w, size.height), CornerRadius(r, r))
                 },
@@ -139,12 +139,12 @@ fun ViewModeToggle(
     )
 }
 
-/** Loading: M3 Expressive indicators (experimental; the opt-in stays inside the design-system). */
-@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+/** Fixed min height of a filled TextField = its label-floated height (label line + text line + padding, follows font scale), so focus, typing and errors never move the content below. Use with every TextField. */
 @Composable
-fun Loading(
-    modifier: Modifier = Modifier,
-    contained: Boolean = false,
-) {
-    if (contained) ContainedLoadingIndicator(modifier) else LoadingIndicator(modifier)
+fun Modifier.stableFieldHeight(): Modifier {
+    val t = MaterialTheme.typography
+    val h = with(LocalDensity.current) { t.bodySmall.lineHeight.toDp() + t.bodyLarge.lineHeight.toDp() } + FieldVerticalPad * 2
+    return heightIn(min = maxOf(56.dp, h))
 }
+
+private val FieldVerticalPad = 8.dp

@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
@@ -47,8 +48,9 @@ import net.venipa.stashling.core.whisparr.WhisparrScene
 import net.venipa.stashling.ds.CardTone
 import net.venipa.stashling.ds.ConfirmSheet
 import net.venipa.stashling.ds.EmptyState
-import net.venipa.stashling.ds.Loading
+import net.venipa.stashling.ds.LoadingPill
 import net.venipa.stashling.ds.PillTone
+import net.venipa.stashling.ds.RefreshBox
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
@@ -56,6 +58,10 @@ import net.venipa.stashling.ds.StatusPill
 import net.venipa.stashling.ds.TonalCard
 import net.venipa.stashling.ds.groupItemShape
 import net.venipa.stashling.ds.readableWidth
+import net.venipa.stashling.feature.common.LocalNetworkNotice
+import net.venipa.stashling.feature.common.SceneRowSkeleton
+import net.venipa.stashling.feature.common.localNetworkMissing
+import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.feature.detail.whisparr.QueueProgress
 import net.venipa.stashling.feature.detail.whisparr.queueLabel
 import net.venipa.stashling.nav.LocalDockInset
@@ -68,7 +74,8 @@ import net.venipa.stashling.nav.SettingsAction
 @Composable
 fun DownloadsScreen() {
     val container = LocalAppContainer.current
-    val vm: DownloadsViewModel = viewModel { DownloadsViewModel(container) }
+    val vm: DownloadsViewModel = tabViewModel { DownloadsViewModel(container) }
+    val refreshing by vm.refreshing.collectAsStateWithLifecycle()
     val tab by vm.tab.collectAsStateWithLifecycle()
     val queue by vm.queue.collectAsStateWithLifecycle()
     val history by vm.history.collectAsStateWithLifecycle()
@@ -90,40 +97,45 @@ fun DownloadsScreen() {
         topBar = { TopAppBar({ Text(stringResource(R.string.downloads_title)) }, actions = { SettingsAction() }) },
     ) { padding ->
         val dock = LocalDockInset.current
-        LazyColumn(
-            Modifier.fillMaxSize().readableWidth(),
-            contentPadding = PaddingValues(start = Space.L, end = Space.L, top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + dock + Space.L),
-            // 2dp: queue / history rows form one connected group (concentric).
-            verticalArrangement = Arrangement.spacedBy(2.dp),
-        ) {
-            item(key = "tabs") {
-                StashSegmented(
-                    listOf(stringResource(R.string.downloads_tab_queue), stringResource(R.string.downloads_tab_history)),
-                    tab,
-                    vm::selectTab,
-                    Modifier.padding(bottom = Space.M),
-                )
-            }
-            val list = if (tab == 0) queue else history
-            list.error?.let { msg -> item(key = "error") { TonalCard(Modifier.padding(bottom = Space.S), tone = CardTone.Error) { Text(msg) } } }
-            when {
-                list.items == null -> item(key = "loading") { Box(Modifier.fillMaxWidth().padding(Space.Xl), contentAlignment = Alignment.Center) { Loading() } }
-
-                list.items.isEmpty() ->
-                    item(key = "empty") {
-                        EmptyState(StashlingIcons.Download, stringResource(if (tab == 0) R.string.downloads_queue_empty else R.string.downloads_history_empty))
+        Box(Modifier.fillMaxSize()) {
+            RefreshBox(refreshing, vm::refresh, Modifier.fillMaxSize()) {
+                LazyColumn(
+                    Modifier.fillMaxSize().readableWidth(),
+                    contentPadding = PaddingValues(start = Space.L, end = Space.L, top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding() + dock + Space.L),
+                    // 2dp: queue / history rows form one connected group (concentric).
+                    verticalArrangement = Arrangement.spacedBy(2.dp),
+                ) {
+                    item(key = "tabs") {
+                        StashSegmented(
+                            listOf(stringResource(R.string.downloads_tab_queue), stringResource(R.string.downloads_tab_history)),
+                            tab,
+                            vm::selectTab,
+                            Modifier.padding(bottom = Space.M),
+                        )
                     }
+                    val list = if (tab == 0) queue else history
+                    list.error?.let { msg -> item(key = "error") { if (LocalContext.current.localNetworkMissing()) LocalNetworkNotice(Modifier.padding(bottom = Space.S)) else TonalCard(Modifier.padding(bottom = Space.S), tone = CardTone.Error) { Text(msg) } } }
+                    when {
+                        list.items == null -> items(6, key = { "skeleton$it" }) { SceneRowSkeleton(it, 6) }
 
-                tab == 0 -> {
-                    val rows = queue.items.orEmpty()
-                    itemsIndexed(rows, key = { _, q -> "q${q.id}" }) { i, q -> QueueRow(q, groupItemShape(i, rows.size), { open(q.movie) }, { confirm = q to it }) }
-                }
+                        list.items.isEmpty() ->
+                            item(key = "empty") {
+                                EmptyState(StashlingIcons.Download, stringResource(if (tab == 0) R.string.downloads_queue_empty else R.string.downloads_history_empty))
+                            }
 
-                else -> {
-                    val rows = history.items.orEmpty()
-                    itemsIndexed(rows, key = { _, h -> "h${h.id}" }) { i, h -> HistoryRow(h, groupItemShape(i, rows.size)) { open(h.movie) } }
+                        tab == 0 -> {
+                            val rows = queue.items.orEmpty()
+                            itemsIndexed(rows, key = { _, q -> "q${q.id}" }) { i, q -> QueueRow(q, groupItemShape(i, rows.size), { open(q.movie) }, { confirm = q to it }) }
+                        }
+
+                        else -> {
+                            val rows = history.items.orEmpty()
+                            itemsIndexed(rows, key = { _, h -> "h${h.id}" }) { i, h -> HistoryRow(h, groupItemShape(i, rows.size)) { open(h.movie) } }
+                        }
+                    }
                 }
             }
+            LoadingPill((if (tab == 0) queue else history).items == null, Modifier.align(Alignment.Center))
         }
     }
 

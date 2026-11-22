@@ -145,12 +145,16 @@ class StashDbClient(
     ): T? {
         val res = send(base, auth, query, variables)
         if (res.status.value == 401) throw StashError.Unauthorized()
-        if (res.status.value !in 200..299) throw StashError.Http(res.status.value)
         val text = call { res.bodyAsText() }
         try {
+            // gqlgen answers a query the deployed schema rejects with 422 + errors[] (schema drift vs master): keep the messages.
+            if (res.status.value !in 200..299 && res.status.value != 422) throw StashError.Http(res.status.value)
             val root = StashJson.parseToJsonElement(text).jsonObject
             val errors = (root["errors"] as? JsonArray)?.mapNotNull { e -> e.jsonObject["message"]?.jsonPrimitive?.contentOrNull }
+            if (res.status.value == 422 && errors.isNullOrEmpty()) throw StashError.Http(422)
             if (!errors.isNullOrEmpty()) {
+                // Diagnosable in logcat (System.err): operation + server messages only, never the key or variables.
+                System.err.println("Stashling StashDB ${StashQueries.nameOf(query)} HTTP ${res.status.value}: ${errors.joinToString(" | ")}")
                 // No key / expired cookie: HTTP 200 with errors[].message "not authorized" (seen live 2026-11-22).
                 if (errors.any { it.contains("not authorized", ignoreCase = true) }) throw StashError.Unauthorized()
                 throw StashError.GraphQl(errors)
@@ -248,7 +252,11 @@ class StashDbClient(
             if (studioIds.isNotEmpty()) put("studios", ids(studioIds, "INCLUDES"))
             parentStudioId?.let { put("parentStudio", it) }
             if (performerIds.isNotEmpty()) put("performers", ids(performerIds, "INCLUDES_ALL"))
-            if (tagIds.isNotEmpty()) put("tags", ids(tagIds, if (allTags) "INCLUDES_ALL" else "INCLUDES"))
+            if (tagIds.isNotEmpty()) {
+                put("tags", ids(tagIds, if (allTags) "INCLUDES_ALL" else "INCLUDES"))
+            } else if (excludeTagIds.isNotEmpty()) {
+                put("tags", ids(excludeTagIds, "EXCLUDES"))
+            }
             date?.let {
                 put(
                     "date",

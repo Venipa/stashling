@@ -34,6 +34,7 @@ data class ReleasesUi(
     val grabbing: String? = null,
     /** The grab hit Whisparr's expired release cache; this list is a fresh search. */
     val expired: Boolean = false,
+    val startedAt: Long = System.currentTimeMillis(),
 )
 
 class WhisparrPanelViewModel(

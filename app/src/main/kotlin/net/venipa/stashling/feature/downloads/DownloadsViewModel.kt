@@ -37,6 +37,20 @@ class DownloadsViewModel(
         _tab.value = i
     }
 
+    private val _refreshing = MutableStateFlow(false)
+    val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
+
+    /** Pull to refresh = poll now. */
+    fun refresh() {
+        val repo = container.whisparr.value ?: return
+        viewModelScope.launch {
+            _refreshing.value = true
+            loadQueue(repo)
+            loadHistory(repo)
+            _refreshing.value = false
+        }
+    }
+
     /** While visible: the queue every 5 s while it has items, else 30 s; history on each idle tick. */
     suspend fun poll() {
         var tick = 0

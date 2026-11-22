@@ -6,7 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.lazy.grid.rememberLazyGridState
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Scaffold
@@ -23,11 +23,11 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
+import net.venipa.stashling.core.stash.CachingStashDbApi
 import net.venipa.stashling.core.stash.Favorites
 import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.SceneFilter
 import net.venipa.stashling.core.stash.SceneSort
-import net.venipa.stashling.core.stash.StashDbApi
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.feature.common.ListModeToggle
 import net.venipa.stashling.feature.common.PageLoader
@@ -35,6 +35,7 @@ import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashTopBar
 import net.venipa.stashling.feature.common.listPadding
 import net.venipa.stashling.feature.common.rememberSceneListMode
+import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.nav.LocalDockInset
 import net.venipa.stashling.nav.SettingsAction
 
@@ -44,7 +45,7 @@ enum class HomeTab(val label: Int) {
     Favorites(R.string.home_favorites),
 }
 
-class HomeViewModel(stash: StashDbApi) : ViewModel() {
+class HomeViewModel(private val stash: CachingStashDbApi) : ViewModel() {
     private val _selected = MutableStateFlow(HomeTab.Trending)
     val selected: StateFlow<HomeTab> = _selected
 
@@ -58,8 +59,16 @@ class HomeViewModel(stash: StashDbApi) : ViewModel() {
     val loaders: Map<HomeTab, PageLoader<SceneCard>> =
         HomeTab.entries.associateWith { tab -> PageLoader(viewModelScope, { it.id }) { p -> stash.scenes(filter(tab), p) } }
 
+    // Scroll positions live here too: the screen is recreated on every tab switch.
+    val gridStates = HomeTab.entries.associateWith { LazyGridState() }
+
     init {
         select(HomeTab.Trending)
+    }
+
+    fun refresh() {
+        stash.invalidate("scenes|")
+        loaders.getValue(_selected.value).refresh()
     }
 
     fun select(tab: HomeTab) {
@@ -72,12 +81,11 @@ class HomeViewModel(stash: StashDbApi) : ViewModel() {
 @Composable
 fun HomeScreen(onOpenScene: (String) -> Unit) {
     val c = LocalAppContainer.current
-    val vm = viewModel { HomeViewModel(c.stash) }
+    val vm = tabViewModel { HomeViewModel(c.stash) }
     val tab by vm.selected.collectAsState()
     val loader = vm.loaders.getValue(tab)
     val state by loader.state.collectAsState()
     val mode by rememberSceneListMode()
-    val gridStates = HomeTab.entries.associateWith { rememberLazyGridState() }
     Scaffold(
         topBar = {
             StashTopBar(stringResource(R.string.app_name), actions = {
@@ -90,7 +98,6 @@ fun HomeScreen(onOpenScene: (String) -> Unit) {
             Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Space.L, vertical = Space.S), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
                 HomeTab.entries.forEach { t -> FilterChip(t == tab, { vm.select(t) }, { Text(stringResource(t.label)) }) }
             }
-            // One grid state per tab, so each tab keeps its scroll position across chip switches.
             ScenesGrid(
                 state,
                 mode,
@@ -98,7 +105,8 @@ fun HomeScreen(onOpenScene: (String) -> Unit) {
                 loader::loadMore,
                 loader::retry,
                 onOpenScene,
-                gridState = gridStates.getValue(tab),
+                gridState = vm.gridStates.getValue(tab),
+                onRefresh = vm::refresh,
             )
         }
     }
