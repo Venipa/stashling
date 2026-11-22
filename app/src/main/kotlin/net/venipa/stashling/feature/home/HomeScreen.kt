@@ -235,8 +235,8 @@ fun HomeDockControls() {
             val w by animateFloatAsState(if (collapsed && !on) 0.001f else 1f, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "homeChip")
             Box(
                 Modifier
-                    .weight(w)
-                    .graphicsLayer { alpha = w }
+                    .weight(w.coerceAtLeast(0.001f))
+                    .graphicsLayer { alpha = w.coerceIn(0f, 1f) }
                     .heightIn(min = 48.dp)
                     .clip(DockItemShape)
                     .background(if (on) cs.secondaryContainer else cs.secondaryContainer.copy(alpha = 0f))
