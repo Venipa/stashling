@@ -51,7 +51,8 @@ Back up `apps/android/keys/`: updates must be signed with the same key.
 ## CI
 
 - `ci.yml`: Android checks (`assembleDebug testDebugUnitTest spotlessCheck`) and the docs build on master and `feat/**`.
-- `release.yml`: signed APK on a `v*` tag (attached to a GitHub Release) or by hand. Repository secrets:
+- `release.yml`: signed APK on a `v*` tag, attached to a **draft** GitHub Release with notes since the previous release of the
+  same channel (stable or pre-release); review and publish it by hand. Also runs by hand (artifact only). Repository secrets:
   - `STASHLING_KEYSTORE_BASE64`: the keystore, base64 (`base64 -w0 apps/android/keys/stashling-release.jks`)
   - `STASHLING_KEYSTORE_PASSWORD`, `STASHLING_KEY_ALIAS`, `STASHLING_KEY_PASSWORD`
   - optional `GRADLE_ENCRYPTION_KEY` (lets setup-gradle restore the configuration cache)
