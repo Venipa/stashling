@@ -1,6 +1,7 @@
 package net.venipa.stashling.core.whisparr
 
 import io.ktor.client.HttpClient
+import io.ktor.client.HttpClientConfig
 import io.ktor.client.engine.HttpClientEngine
 import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.client.plugins.HttpTimeout
@@ -32,7 +33,9 @@ object WhisparrClients {
     internal fun httpClient(
         apiKey: String,
         engine: HttpClientEngine,
+        extra: HttpClientConfig<*>.() -> Unit = {},
     ): HttpClient = HttpClient(engine) {
+        extra()
         expectSuccess = false
         // Ktor keeps custom headers on cross-host redirects (it only strips Authorization): never follow, or an auth proxy's 302 gets the key.
         followRedirects = false

@@ -8,9 +8,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -25,6 +28,7 @@ import net.venipa.stashling.core.whisparr.AddMode
 import net.venipa.stashling.core.whisparr.PanelState
 import net.venipa.stashling.core.whisparr.Release
 import net.venipa.stashling.core.whisparr.WhisparrError
+import net.venipa.stashling.core.whisparr.WhisparrEvent
 import net.venipa.stashling.core.whisparr.WhisparrRepository
 import net.venipa.stashling.core.whisparr.WhisparrScene
 import java.io.IOException
@@ -122,11 +126,37 @@ class WhisparrPanelViewModel(
                 continue
             }
             val active = isActive(_state.value)
-            withTimeoutOrNull(if (active) ACTIVE_MS else IDLE_MS) { _state.first { isActive(it) != active } }
+            // Live (SignalR): this scene's movie/command events or any queue change wake it; the timer is the fallback.
+            val wait = if (container.whisparrLiveConnected.value) {
+                LIVE_MS
+            } else if (active) {
+                ACTIVE_MS
+            } else {
+                IDLE_MS
+            }
+            withTimeoutOrNull(wait) {
+                merge(_state.filter { isActive(it) != active }, container.whisparrEvents.filter { concerns(it) }, container.whisparrLiveConnected.drop(1)).first()
+            }
         }
     }
 
     private fun isActive(s: PanelState) = s is PanelState.Searching || s is PanelState.InQueue
+
+    private fun concerns(e: WhisparrEvent): Boolean = when (e.name) {
+        "movie" -> e.stashId == stashId || (e.id != null && e.id == sceneOf(_state.value)?.id)
+        "command" -> e.id != null && e.id == searchCommandId && e.status != "queued" && e.status != "started"
+        "queue" -> true
+        else -> false
+    }
+
+    private fun sceneOf(s: PanelState): WhisparrScene? = when (s) {
+        is PanelState.Missing -> s.scene
+        is PanelState.Searching -> s.scene
+        is PanelState.InQueue -> s.scene
+        is PanelState.Failed -> s.scene
+        is PanelState.Downloaded -> s.scene
+        else -> null
+    }
 
     private suspend fun refresh() = refreshLock.withLock {
         val repo = container.whisparr.value
@@ -246,5 +276,6 @@ class WhisparrPanelViewModel(
     private companion object {
         const val ACTIVE_MS = 5_000L
         const val IDLE_MS = 30_000L
+        const val LIVE_MS = 60_000L
     }
 }

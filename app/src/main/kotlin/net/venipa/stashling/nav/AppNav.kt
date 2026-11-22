@@ -72,6 +72,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
+import kotlinx.coroutines.launch
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.ds.ContextMenuHost
@@ -203,11 +204,20 @@ fun AppNav(
     // GlassDock reports its target height (not each animation frame), so grids relayout once per dock state.
     val dockInset = if (showDock && !wide) with(density) { dockPx.toDp() } else 0.dp
     val navigator = remember(backStack) { Navigator(push = { backStack.add(it) }, pop = { backStack.removeLastOrNull() }, tab = { goTab(it) }) }
-    // The one Whisparr queue poller (activity-scoped Downloads ViewModel): runs while the app is visible, feeds Downloads and the pill.
+    // The one Whisparr queue poller + the live (SignalR) connection (activity-scoped Downloads ViewModel): runs while the app is visible, feeds Downloads and the pill.
     val downloads = tabViewModel { DownloadsViewModel(container) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     // Disconnected: refreshWhisparrIndex clears the tile badges.
-    LaunchedEffect(hasDownloads, lifecycle) { if (hasDownloads) lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { downloads.poll() } else container.refreshWhisparrIndex() }
+    LaunchedEffect(hasDownloads, lifecycle) {
+        if (hasDownloads) {
+            lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+                launch { container.runWhisparrLive() }
+                downloads.poll()
+            }
+        } else {
+            container.refreshWhisparrIndex()
+        }
+    }
     val sections by downloads.sections.collectAsState()
 
     val root = backStack.first()

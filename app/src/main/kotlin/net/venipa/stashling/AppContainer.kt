@@ -6,8 +6,16 @@ import androidx.compose.runtime.staticCompositionLocalOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.channels.BufferOverflow
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.debounce
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -81,6 +89,23 @@ class AppContainer(context: Context) {
     suspend fun refreshWhisparrIndex() {
         val repo = whisparr.value ?: return run { whisparrIndex.value = emptyMap() }
         runCatching { repo.libraryIndex() }.onSuccess { whisparrIndex.value = it }
+    }
+
+    // Live updates (SignalR) while the app is visible; polls slow down to a fallback while connected.
+    private val whisparrLive: StateFlow<net.venipa.stashling.core.whisparr.WhisparrLive?> =
+        secrets.whisparr.map { account -> account?.let { net.venipa.stashling.core.whisparr.WhisparrLive(it) } }.stateIn(appScope, SharingStarted.Eagerly, null)
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    val whisparrLiveConnected: StateFlow<Boolean> =
+        whisparrLive.flatMapLatest { it?.connected ?: flowOf(false) }.stateIn(appScope, SharingStarted.Eagerly, false)
+
+    val whisparrEvents = MutableSharedFlow<net.venipa.stashling.core.whisparr.WhisparrEvent>(extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
+
+    /** Run while the app is visible: one hub connection; queue/movie events refresh the tile index (debounced 1 s). */
+    @OptIn(kotlinx.coroutines.FlowPreview::class)
+    suspend fun runWhisparrLive(): Unit = coroutineScope {
+        launch { whisparrEvents.filter { it.name == "queue" || it.name == "movie" }.debounce(1_000).collect { refreshWhisparrIndex() } }
+        whisparrLive.collectLatest { live -> live?.events?.collect { whisparrEvents.emit(it) } }
     }
     // --- end whisparr ---
 }

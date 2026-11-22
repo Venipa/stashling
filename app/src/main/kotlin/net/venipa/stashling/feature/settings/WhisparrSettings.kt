@@ -234,6 +234,17 @@ private fun ConnectionPage(
     onRerun: (Int) -> Unit,
 ) = SettingsPage(stringResource(R.string.settings_whisparr_connection), onBack) {
     WhisparrAccountGroup(onRerun)
+    val container = LocalAppContainer.current
+    val account by container.secrets.whisparr.collectAsState()
+    val live by container.whisparrLiveConnected.collectAsState()
+    if (account != null) {
+        Text(
+            stringResource(if (live) R.string.settings_live_connected else R.string.settings_live_polling),
+            Gutter,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+    }
 }
 
 /** Reconnect, ignore certificate errors, disconnect (with confirm). Whisparr → Connection. */

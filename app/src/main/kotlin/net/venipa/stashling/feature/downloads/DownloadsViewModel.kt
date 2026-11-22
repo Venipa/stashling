@@ -8,10 +8,14 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.drop
+import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.merge
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
 import net.venipa.stashling.AppContainer
 import net.venipa.stashling.core.whisparr.HistoryItem
 import net.venipa.stashling.core.whisparr.QueueItem
@@ -93,23 +97,38 @@ class DownloadsViewModel(
         }
     }
 
-    /** While the app is visible (one poller, started by the shell): the queue every 5 s while it has items, else 30 s; history every 6th tick. */
+    /** While the app is visible (one poller, started by the shell): the queue every 5 s while it has items, else 30 s; history every 6th tick. Live (SignalR): on events, else every 60 s. */
     suspend fun poll() {
         var tick = 0
         var indexAt = 0L
+        var woken = false
         while (true) {
             // Cold start: the client is built a moment after the account loads; wait for it instead of a 30 s idle tick.
             val repo = container.whisparr.value ?: container.whisparr.filterNotNull().first()
             loadQueue(repo)
-            if (tick % HISTORY_EVERY == 0 || _history.value.items == null) loadHistory(repo)
-            // Tile badges: the index is a full library call, so at most once a minute (first tick = on connect).
-            if (System.currentTimeMillis() - indexAt >= INDEX_MS) {
+            if (woken || tick % HISTORY_EVERY == 0 || _history.value.items == null) loadHistory(repo)
+            val live = container.whisparrLiveConnected.value
+            // Tile badges: the index is a full library call, so at most once a minute (first tick = on connect); live events refresh it themselves.
+            if (System.currentTimeMillis() - indexAt >= if (live) LIVE_INDEX_MS else INDEX_MS) {
                 container.refreshWhisparrIndex()
                 indexAt = System.currentTimeMillis()
             }
             val active = !_queue.value.items.isNullOrEmpty()
             tick++
-            delay(if (active) ACTIVE_MS else IDLE_MS)
+            // Live: a queue/file event (grab, progress, import, failure) or a connection change wakes the loop; the timer is the fallback.
+            woken =
+                withTimeoutOrNull(
+                    if (live) {
+                        LIVE_MS
+                    } else if (active) {
+                        ACTIVE_MS
+                    } else {
+                        IDLE_MS
+                    },
+                ) {
+                    merge(container.whisparrEvents.filter { it.name == "queue" || it.name == "moviefile" }, container.whisparrLiveConnected.drop(1)).first()
+                } != null
+            if (woken) delay(EVENT_SETTLE_MS) // events come in bursts (queue, queue/status, queue/details)
         }
     }
 
@@ -151,6 +170,9 @@ class DownloadsViewModel(
         const val ACTIVE_MS = 5_000L
         const val IDLE_MS = 30_000L
         const val INDEX_MS = 60_000L
+        const val LIVE_MS = 60_000L
+        const val LIVE_INDEX_MS = 300_000L
+        const val EVENT_SETTLE_MS = 1_000L
         const val HISTORY_EVERY = 6
         const val HISTORY_DAYS = 14
     }

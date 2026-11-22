@@ -8,6 +8,9 @@
     <string name="whisparr_interactive_search">Interactive search</string>
     <string name="whisparr_search">Search</string>
     <string name="whisparr_monitored">Monitored</string>
+    <string name="whisparr_monitor">Monitor</string>
+    <string name="whisparr_unmonitor">Stop monitoring</string>
+    <string name="whisparr_more">More Whisparr actions</string>
     <string name="whisparr_retry">Retry</string>
     <string name="whisparr_not_in_library">Not in Whisparr</string>
     <string name="whisparr_excluded">On the exclusion list</string>
@@ -60,6 +63,8 @@
         <item quantity="one">%1$d rule</item>
         <item quantity="other">%1$d rules</item>
     </plurals>
+    <string name="settings_live_connected">Live updates: connected</string>
+    <string name="settings_live_polling">Live updates: polling</string>
     <string name="settings_whisparr_connection">Connection</string>
     <string name="settings_whisparr_presets">Presets</string>
     <string name="settings_whisparr_rules">Rules</string>
