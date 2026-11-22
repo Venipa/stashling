@@ -2,18 +2,20 @@ package net.venipa.stashling.feature.detail.whisparr
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.delay
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withTimeoutOrNull
 import net.venipa.stashling.AppContainer
 import net.venipa.stashling.core.whisparr.AddMode
 import net.venipa.stashling.core.whisparr.PanelState
@@ -21,6 +23,7 @@ import net.venipa.stashling.core.whisparr.Release
 import net.venipa.stashling.core.whisparr.WhisparrError
 import net.venipa.stashling.core.whisparr.WhisparrRepository
 import net.venipa.stashling.core.whisparr.WhisparrScene
+import java.io.IOException
 
 /** Interactive search sheet; null in the ViewModel = closed. */
 data class ReleasesUi(
@@ -29,6 +32,8 @@ data class ReleasesUi(
     val items: List<Release> = emptyList(),
     val error: String? = null,
     val grabbing: String? = null,
+    /** The grab hit Whisparr's expired release cache; this list is a fresh search. */
+    val expired: Boolean = false,
 )
 
 class WhisparrPanelViewModel(
@@ -55,16 +60,28 @@ class WhisparrPanelViewModel(
     val releases: StateFlow<ReleasesUi?> = _releases.asStateFlow()
 
     private var searchCommandId: Int? = null
-    private val refreshLock = Mutex()
 
-    /** Run while the panel is visible (the composable ties it to STARTED): 5 s while searching/downloading, else 30 s. */
+    // Serialises polls and actions so a stale poll result can't overwrite an action's newer state.
+    private val refreshLock = Mutex()
+    private var releasesJob: Job? = null
+
+    /**
+     * Run while the panel is visible (the composable ties it to STARTED): 5 s while searching/downloading, else 30 s.
+     * Wakes early when an action flips that, and refreshes as soon as the Whisparr client is built (cold start).
+     */
     suspend fun poll() {
         while (true) {
             refresh()
-            val active = _state.value is PanelState.Searching || _state.value is PanelState.InQueue
-            delay(if (active) ACTIVE_MS else IDLE_MS)
+            if (container.whisparr.value == null) {
+                container.whisparr.filterNotNull().first()
+                continue
+            }
+            val active = isActive(_state.value)
+            withTimeoutOrNull(if (active) ACTIVE_MS else IDLE_MS) { _state.first { isActive(it) != active } }
         }
     }
+
+    private fun isActive(s: PanelState) = s is PanelState.Searching || s is PanelState.InQueue
 
     private suspend fun refresh() = refreshLock.withLock {
         val repo = container.whisparr.value
@@ -78,7 +95,15 @@ class WhisparrPanelViewModel(
 
     private fun apply(next: PanelState) {
         val was = _state.value
-        searchCommandId = (next as? PanelState.Searching)?.commandId
+        searchCommandId =
+            when (next) {
+                is PanelState.Searching -> next.commandId
+
+                // The command has ended (derivePanelState only leaves Searching then); on Error etc. keep following it.
+                is PanelState.Missing, is PanelState.Downloaded, is PanelState.InQueue, is PanelState.Failed -> null
+
+                else -> searchCommandId
+            }
         if (was is PanelState.Searching && next is PanelState.Missing) _noRelease.value = true
         _state.value = next
     }
@@ -99,22 +124,31 @@ class WhisparrPanelViewModel(
         apply(repo.panelState(stashId, searchCommandId))
     }
 
-    fun retry() = action { refresh() }
+    fun retry() = action { repo -> apply(repo.panelState(stashId, searchCommandId)) }
 
     fun openReleases(scene: WhisparrScene) {
-        val repo = container.whisparr.value ?: return
         _noRelease.value = false
-        _releases.value = ReleasesUi(scene.id)
-        viewModelScope.launch {
-            val result =
-                try {
-                    ReleasesUi(scene.id, loading = false, items = repo.releases(scene.id))
-                } catch (e: WhisparrError) {
-                    ReleasesUi(scene.id, loading = false, error = e.message)
-                }
-            // Ignore the result if the sheet was closed meanwhile.
-            _releases.update { if (it?.movieId == scene.id && it.loading) result else it }
-        }
+        loadReleases(scene.id)
+    }
+
+    private fun loadReleases(
+        movieId: Int,
+        expired: Boolean = false,
+    ) {
+        val repo = container.whisparr.value ?: return
+        releasesJob?.cancel()
+        _releases.value = ReleasesUi(movieId, expired = expired)
+        releasesJob =
+            viewModelScope.launch {
+                val result =
+                    try {
+                        ReleasesUi(movieId, loading = false, items = repo.releases(movieId), expired = expired)
+                    } catch (e: WhisparrError) {
+                        ReleasesUi(movieId, loading = false, error = e.message)
+                    }
+                // Ignore the result if the sheet was closed meanwhile.
+                _releases.update { if (it?.movieId == movieId && it.loading) result else it }
+            }
     }
 
     fun grab(release: Release) {
@@ -126,6 +160,9 @@ class WhisparrPanelViewModel(
                 repo.grab(release, sheet.movieId)
                 _releases.value = null
                 refresh()
+            } catch (e: WhisparrError.Http) {
+                // 404 = Whisparr's release cache expired ("try searching again"): search again for the user.
+                if (e.status == 404) loadReleases(sheet.movieId, expired = true) else _releases.update { it?.copy(grabbing = null, error = e.message) }
             } catch (e: WhisparrError) {
                 _releases.update { it?.copy(grabbing = null, error = e.message) }
             }
@@ -133,6 +170,7 @@ class WhisparrPanelViewModel(
     }
 
     fun closeReleases() {
+        releasesJob?.cancel()
         _releases.value = null
     }
 
@@ -143,11 +181,15 @@ class WhisparrPanelViewModel(
         _busy.value = true
         viewModelScope.launch {
             try {
-                block(repo)
-            } catch (e: CancellationException) {
-                throw e
-            } catch (e: WhisparrError) {
-                _state.value = PanelState.Error(e.message ?: "")
+                refreshLock.withLock {
+                    try {
+                        block(repo)
+                    } catch (e: WhisparrError) {
+                        apply(PanelState.Error(e.message ?: ""))
+                    } catch (e: IOException) { // settings DataStore read in add()
+                        apply(PanelState.Error(e.message ?: ""))
+                    }
+                }
             } finally {
                 _busy.value = false
             }

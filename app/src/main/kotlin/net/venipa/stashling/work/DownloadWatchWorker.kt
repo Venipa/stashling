@@ -5,6 +5,8 @@ import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import net.venipa.stashling.StashlingApp
 import net.venipa.stashling.core.whisparr.WhisparrError
@@ -20,12 +22,17 @@ class DownloadWatchWorker(
         // container.whisparr is built asynchronously at process start; a cold worker may get here first.
         val repo = container.whisparr.value ?: withTimeoutOrNull(10_000) { container.whisparr.filterNotNull().first() } ?: return Result.retry()
         return try {
-            repo.newEvents().forEach { DownloadNotifications.show(applicationContext, it) }
+            // Periodic and follow-up runs can overlap: one reader of the cursor at a time, or both notify the same events.
+            lock.withLock { repo.newEvents().forEach { DownloadNotifications.show(applicationContext, it) } }
             if (repo.queue().isNotEmpty()) DownloadWatchScheduler.followUp(applicationContext)
             Result.success()
         } catch (_: WhisparrError) {
             // Server down or key revoked: a few retries, then wait for the next period.
             if (runAttemptCount >= 3) Result.success() else Result.retry()
         }
+    }
+
+    private companion object {
+        val lock = Mutex()
     }
 }

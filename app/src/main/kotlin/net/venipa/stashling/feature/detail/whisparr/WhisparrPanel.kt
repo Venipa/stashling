@@ -223,6 +223,7 @@ private fun ReleaseSheet(
     Column(Modifier.padding(horizontal = Space.L).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(Space.S)) {
         Text(stringResource(R.string.whisparr_releases_title), style = MaterialTheme.typography.titleLarge)
         ui.error?.let { Text(it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodyMedium) }
+        if (ui.expired) Text(stringResource(R.string.whisparr_releases_expired), style = MaterialTheme.typography.bodyMedium)
         when {
             ui.loading ->
                 Column(Modifier.fillMaxWidth().padding(vertical = Space.Xl), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(Space.M)) {

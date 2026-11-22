@@ -123,18 +123,27 @@ class WhisparrRepository(
 private val FAILED_STATES = setOf("failed", "failedPending")
 private val RUNNING_COMMAND = setOf("queued", "started")
 
-/** Queue beats file (an upgrade can be downloading while a file exists); failed queue items are their own state. */
+/**
+ * Queue beats file (an upgrade can be downloading while a file exists); failed queue items are their own state,
+ * except while a "Search again" runs: Whisparr keeps the failed item queued until the new grab replaces it.
+ */
 internal fun derivePanelState(
     scene: WhisparrScene,
     queue: List<QueueItem>,
     searchCommand: CommandRes?,
 ): PanelState {
     val item = queue.firstOrNull { it.movieId == scene.id }
+    val running = searchCommand?.takeIf { it.status in RUNNING_COMMAND }
     return when {
-        item != null && (item.trackedDownloadState in FAILED_STATES || item.status == "failed") -> PanelState.Failed(scene, item.errorMessage)
+        item != null && (item.trackedDownloadState in FAILED_STATES || item.status == "failed") ->
+            if (running != null) PanelState.Searching(scene, running.id) else PanelState.Failed(scene, item.errorMessage)
+
         item != null -> PanelState.InQueue(scene, item)
+
         scene.hasFile == true -> PanelState.Downloaded(scene)
-        searchCommand != null && searchCommand.status in RUNNING_COMMAND -> PanelState.Searching(scene, searchCommand.id)
+
+        running != null -> PanelState.Searching(scene, running.id)
+
         else -> PanelState.Missing(scene)
     }
 }

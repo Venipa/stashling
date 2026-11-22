@@ -38,6 +38,8 @@ class WhisparrRepositoryTest {
         assertIs<PanelState.Missing>(derivePanelState(scene, listOf(queueItem().copy(movieId = 99)), null))
         assertIs<PanelState.Searching>(derivePanelState(scene, emptyList(), CommandRes(3, "MoviesSearch", "started")))
         assertIs<PanelState.Missing>(derivePanelState(scene, emptyList(), CommandRes(3, "MoviesSearch", "completed")))
+        assertIs<PanelState.Searching>(derivePanelState(scene, listOf(queueItem(state = "failedPending")), CommandRes(3, "MoviesSearch", "queued")))
+        assertIs<PanelState.Failed>(derivePanelState(scene, listOf(queueItem(state = "failedPending")), CommandRes(3, "MoviesSearch", "completed")))
     }
 
     @Test

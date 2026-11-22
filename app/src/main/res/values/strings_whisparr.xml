@@ -22,6 +22,7 @@
     <string name="whisparr_releases_title">Interactive search</string>
     <string name="whisparr_releases_loading">Searching indexers, this can take a minute.</string>
     <string name="whisparr_releases_empty">No releases found</string>
+    <string name="whisparr_releases_expired">Those results expired, so here is a fresh search. Pick again.</string>
     <string name="whisparr_release_meta">%1$s · %2$s · %3$s · %4$s</string>
     <string name="whisparr_release_seeders">%1$d seeders</string>
     <string name="whisparr_release_rejected">Rejected: %1$s</string>
