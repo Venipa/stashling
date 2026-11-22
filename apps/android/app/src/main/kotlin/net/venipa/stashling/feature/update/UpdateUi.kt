@@ -192,7 +192,9 @@ private fun UpdateSheet(
                 val sizeText = Formatter.formatShortFileSize(context, release.apkSize)
                 val meta =
                     release.publishedAt?.let {
-                        val ago = DateUtils.getRelativeTimeSpanString(it.toEpochMilliseconds(), System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS).toString()
+                        val ms = it.toEpochMilliseconds()
+                        val now = System.currentTimeMillis()
+                        val ago = if (now - ms < DateUtils.MINUTE_IN_MILLIS) stringResource(R.string.update_just_now) else DateUtils.getRelativeTimeSpanString(ms, now, DateUtils.MINUTE_IN_MILLIS).toString()
                         stringResource(R.string.update_sheet_meta, ago.replaceFirstChar(Char::lowercaseChar), sizeText, BuildConfig.VERSION_NAME)
                     } ?: stringResource(R.string.update_sheet_meta_nodate, sizeText, BuildConfig.VERSION_NAME)
                 Text(meta, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
