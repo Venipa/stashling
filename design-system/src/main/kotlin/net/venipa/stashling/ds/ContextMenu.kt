@@ -50,14 +50,12 @@ import androidx.compose.ui.graphics.layer.GraphicsLayer
 import androidx.compose.ui.graphics.layer.drawLayer
 import androidx.compose.ui.graphics.rememberGraphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Constraints
@@ -166,7 +164,7 @@ fun ContextMenuHost(
 ) {
     val progress = remember { Animatable(0f) }
     val req = state.request
-    val haptic = LocalHapticFeedback.current
+    val haptic = LocalStashHaptics.current
     val spatial = MaterialTheme.motionScheme.fastSpatialSpec<Float>()
     val effects = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
     val scope = rememberCoroutineScope()
@@ -177,7 +175,7 @@ fun ContextMenuHost(
             state.request = null
             state.closing = false
         } else {
-            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+            haptic.longPress()
             progress.animateTo(1f, spatial)
         }
     }
@@ -304,11 +302,11 @@ private fun Menu(
     onDone: () -> Unit,
 ) {
     val cs = MaterialTheme.colorScheme
-    val haptic = LocalHapticFeedback.current
+    val haptic = LocalStashHaptics.current
     val rows = remember { mutableStateMapOf<Int, Rect>() }
     val drag = anchor.drag
     val hover = drag?.let { d -> rows.entries.firstOrNull { it.value.contains(d) }?.key }
-    LaunchedEffect(hover) { if (hover != null) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick) }
+    LaunchedEffect(hover) { if (hover != null) haptic.tick() }
     val tick = anchor.releaseTick
     val startTick = remember { tick }
     LaunchedEffect(tick) {
@@ -317,6 +315,7 @@ private fun Menu(
         val at = anchor.releasedAt ?: return@LaunchedEffect
         val i = rows.entries.firstOrNull { it.value.contains(at) }?.key ?: return@LaunchedEffect
         items.getOrNull(i)?.let {
+            haptic.confirm()
             onDone()
             it.onClick()
         }
@@ -338,6 +337,7 @@ private fun Menu(
                     .clip(RoundedCornerShape(top, top, bottom, bottom))
                     .background(if (hover == i) cs.onSurface.copy(alpha = 0.1f) else cs.onSurface.copy(alpha = 0f))
                     .clickable {
+                        haptic.confirm()
                         onDone()
                         a.onClick()
                     }.padding(horizontal = Space.M, vertical = Space.M),

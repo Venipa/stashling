@@ -28,6 +28,7 @@ import net.venipa.stashling.core.stash.SceneFilter
 import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.Tag
 import net.venipa.stashling.ds.GroupRow
+import net.venipa.stashling.ds.LocalStashHaptics
 import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.TonalCard
@@ -90,7 +91,11 @@ fun TagDetailScreen(
             topBar = {
                 StashTopBar(t.name, onBack, actions = {
                     ListModeToggle(mode)
-                    IconButton({ vm.actions.toggleBookmark(t.name, t.category, null) }) {
+                    val haptic = LocalStashHaptics.current
+                    IconButton({
+                        haptic.confirm()
+                        vm.actions.toggleBookmark(t.name, t.category, null)
+                    }) {
                         Icon(if (bookmarked) BrowseIcons.BookmarkFilled else BrowseIcons.Bookmark, stringResource(if (bookmarked) R.string.detail_unbookmark else R.string.detail_bookmark))
                     }
                 })

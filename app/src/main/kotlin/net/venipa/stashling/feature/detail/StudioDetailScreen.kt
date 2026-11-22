@@ -42,6 +42,7 @@ import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.Studio
 import net.venipa.stashling.ds.AppSnackbar
 import net.venipa.stashling.ds.GroupRow
+import net.venipa.stashling.ds.LocalStashHaptics
 import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.TonalGroup
@@ -127,8 +128,15 @@ fun StudioDetailScreen(
             topBar = {
                 StashTopBar(s.name, onBack, actions = {
                     ListModeToggle(mode)
-                    IconButton({ vm.toggleFavorite(s) }) { Icon(if (favorite) BrowseIcons.FavoriteFilled else BrowseIcons.Favorite, stringResource(if (favorite) R.string.detail_unfavorite else R.string.detail_favorite)) }
-                    IconButton({ vm.toggleBookmark(s) }) { Icon(if (bookmarked) BrowseIcons.BookmarkFilled else BrowseIcons.Bookmark, stringResource(if (bookmarked) R.string.detail_unbookmark else R.string.detail_bookmark)) }
+                    val haptic = LocalStashHaptics.current
+                    IconButton({
+                        haptic.confirm()
+                        vm.toggleFavorite(s)
+                    }) { Icon(if (favorite) BrowseIcons.FavoriteFilled else BrowseIcons.Favorite, stringResource(if (favorite) R.string.detail_unfavorite else R.string.detail_favorite)) }
+                    IconButton({
+                        haptic.confirm()
+                        vm.toggleBookmark(s)
+                    }) { Icon(if (bookmarked) BrowseIcons.BookmarkFilled else BrowseIcons.Bookmark, stringResource(if (bookmarked) R.string.detail_unbookmark else R.string.detail_bookmark)) }
                 })
             },
             snackbarHost = { SnackbarHost(snackbar) { AppSnackbar(it) } },

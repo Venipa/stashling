@@ -21,7 +21,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -84,6 +83,7 @@ import net.venipa.stashling.ds.RefreshBox
 import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.SheetAction
 import net.venipa.stashling.ds.Space
+import net.venipa.stashling.ds.StashFilterChip
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.letterPositions
@@ -268,7 +268,7 @@ fun SavedScreen(
                 }
                 librarySwitch()
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Space.L, vertical = Space.Xs), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                    BookmarkKind.entries.forEach { k -> FilterChip(k == kind, { vm.selectKind(k) }, { Text(stringResource(k.labelRes())) }) }
+                    BookmarkKind.entries.forEach { k -> StashFilterChip(k == kind, { vm.selectKind(k) }, { Text(stringResource(k.labelRes())) }) }
                 }
             }
         },

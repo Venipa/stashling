@@ -85,6 +85,8 @@
     <string name="settings_performers_both">Both</string>
     <string name="settings_oled_body">Pure black backgrounds whenever the dark theme is active.</string>
     <string name="settings_dynamic">Dynamic colour</string>
+    <string name="settings_haptics">Haptic feedback</string>
+    <string name="settings_haptics_body">Vibration on taps, swipes and menus</string>
     <string name="settings_dynamic_body">Use your wallpaper colours instead of the Stashling violet.</string>
     <string name="settings_privacy">Privacy</string>
     <string name="settings_privacy_value">Secure screen %1$s, app lock %2$s</string>

@@ -28,7 +28,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -85,6 +84,7 @@ import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.SkeletonBox
 import net.venipa.stashling.ds.SkeletonText
 import net.venipa.stashling.ds.Space
+import net.venipa.stashling.ds.StashFilterChip
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.fieldColors
@@ -243,8 +243,8 @@ fun BrowseScreen(
                 searchKey = cat,
                 header = {
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                        FilterChip(cat == null, { cat = null }, { Text(stringResource(R.string.browse_any)) })
-                        categories.forEach { c -> FilterChip(cat == c.id, { cat = c.id }, { Text(c.name) }) }
+                        StashFilterChip(cat == null, { cat = null }, { Text(stringResource(R.string.browse_any)) })
+                        categories.forEach { c -> StashFilterChip(cat == c.id, { cat = c.id }, { Text(c.name) }) }
                     }
                 },
             )
@@ -555,7 +555,7 @@ private fun FilterSheet(
             if (showSort) {
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
                     names.forEachIndexed { i, res ->
-                        FilterChip(i == selected, {
+                        StashFilterChip(i == selected, {
                             vm.update {
                                 when (kind) {
                                     BrowseKind.Scenes -> it.copy(scene = it.scene.copy(sort = SceneSort.entries[i]))
@@ -606,7 +606,7 @@ private fun FilterSheet(
                     val opts = listOf(null, Favorites.PERFORMER, Favorites.STUDIO, Favorites.ALL)
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
                         listOf(R.string.browse_fav_off, R.string.browse_fav_performers, R.string.browse_fav_studios, R.string.browse_fav_both).forEachIndexed { i, res ->
-                            FilterChip(s.favorites == opts[i], { vm.update { it.copy(scene = it.scene.copy(favorites = opts[i])) } }, { Text(stringResource(res)) })
+                            StashFilterChip(s.favorites == opts[i], { vm.update { it.copy(scene = it.scene.copy(favorites = opts[i])) } }, { Text(stringResource(res)) })
                         }
                     }
                     SectionHeader(stringResource(R.string.browse_layout))
@@ -614,15 +614,15 @@ private fun FilterSheet(
                     ListModeSegmented(mode)
                 }
 
-                BrowseKind.Performers -> FilterChip(f.performer.favoritesOnly, { vm.update { it.copy(performer = it.performer.copy(favoritesOnly = !it.performer.favoritesOnly)) } }, { Text(stringResource(R.string.browse_filter_favorites)) })
+                BrowseKind.Performers -> StashFilterChip(f.performer.favoritesOnly, { vm.update { it.copy(performer = it.performer.copy(favoritesOnly = !it.performer.favoritesOnly)) } }, { Text(stringResource(R.string.browse_filter_favorites)) })
 
-                BrowseKind.Studios -> FilterChip(f.studio.favoritesOnly, { vm.update { it.copy(studio = it.studio.copy(favoritesOnly = !it.studio.favoritesOnly)) } }, { Text(stringResource(R.string.browse_filter_favorites)) })
+                BrowseKind.Studios -> StashFilterChip(f.studio.favoritesOnly, { vm.update { it.copy(studio = it.studio.copy(favoritesOnly = !it.studio.favoritesOnly)) } }, { Text(stringResource(R.string.browse_filter_favorites)) })
 
                 BrowseKind.Tags -> {
                     SectionHeader(stringResource(R.string.browse_filter_category))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                        FilterChip(f.tag.categoryId == null, { vm.update { it.copy(tag = it.tag.copy(categoryId = null)) } }, { Text(any) })
-                        categories.forEach { cat -> FilterChip(f.tag.categoryId == cat.id, { vm.update { it.copy(tag = it.tag.copy(categoryId = cat.id)) } }, { Text(cat.name) }) }
+                        StashFilterChip(f.tag.categoryId == null, { vm.update { it.copy(tag = it.tag.copy(categoryId = null)) } }, { Text(any) })
+                        categories.forEach { cat -> StashFilterChip(f.tag.categoryId == cat.id, { vm.update { it.copy(tag = it.tag.copy(categoryId = cat.id)) } }, { Text(cat.name) }) }
                     }
                 }
             }

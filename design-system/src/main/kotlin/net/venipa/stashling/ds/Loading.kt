@@ -197,9 +197,13 @@ fun RefreshBox(
     content: @Composable BoxScope.() -> Unit,
 ) {
     val state = rememberPullToRefreshState()
+    val haptic = LocalStashHaptics.current
     PullToRefreshBox(
         isRefreshing,
-        onRefresh,
+        {
+            haptic.confirm()
+            onRefresh()
+        },
         modifier,
         state,
         indicator = { PullToRefreshDefaults.LoadingIndicator(state, isRefreshing, Modifier.align(Alignment.TopCenter).padding(top = indicatorTop)) },

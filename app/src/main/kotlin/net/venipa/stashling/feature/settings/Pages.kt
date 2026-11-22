@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -47,6 +46,7 @@ import net.venipa.stashling.ds.LoadingSkeleton
 import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.SkeletonBox
 import net.venipa.stashling.ds.StashSegmented
+import net.venipa.stashling.ds.StashSwitch
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
 import net.venipa.stashling.ds.groupItemShape
@@ -80,14 +80,20 @@ internal fun AppearancePage(
             GroupRow(
                 stringResource(R.string.settings_oled),
                 supporting = stringResource(R.string.settings_oled_body),
-                trailing = { Switch(settings.oledBlack, { v -> oledAnchor.reveal { scope.launch { store.update { it.copy(oledBlack = v) } } } }, oledAnchor.modifier) },
+                trailing = { StashSwitch(settings.oledBlack, { v -> oledAnchor.reveal { scope.launch { store.update { it.copy(oledBlack = v) } } } }, oledAnchor.modifier) },
                 onClick = { oledAnchor.reveal { scope.launch { store.update { it.copy(oledBlack = !it.oledBlack) } } } },
             )
             GroupRow(
                 stringResource(R.string.settings_dynamic),
                 supporting = stringResource(R.string.settings_dynamic_body),
-                trailing = { Switch(settings.dynamicColor, { v -> dynAnchor.reveal { scope.launch { store.update { it.copy(dynamicColor = v) } } } }, dynAnchor.modifier) },
+                trailing = { StashSwitch(settings.dynamicColor, { v -> dynAnchor.reveal { scope.launch { store.update { it.copy(dynamicColor = v) } } } }, dynAnchor.modifier) },
                 onClick = { dynAnchor.reveal { scope.launch { store.update { it.copy(dynamicColor = !it.dynamicColor) } } } },
+            )
+            GroupRow(
+                stringResource(R.string.settings_haptics),
+                supporting = stringResource(R.string.settings_haptics_body),
+                trailing = { StashSwitch(settings.haptics, { v -> scope.launch { store.update { it.copy(haptics = v) } } }) },
+                onClick = { scope.launch { store.update { it.copy(haptics = !it.haptics) } } },
             )
         }
     }
@@ -123,13 +129,13 @@ internal fun PrivacyPage(
             GroupRow(
                 stringResource(R.string.settings_secure_screen),
                 supporting = stringResource(R.string.settings_secure_screen_body),
-                trailing = { Switch(settings.secureScreen, { v -> scope.launch { store.update { it.copy(secureScreen = v) } } }) },
+                trailing = { StashSwitch(settings.secureScreen, { v -> scope.launch { store.update { it.copy(secureScreen = v) } } }) },
                 onClick = { scope.launch { store.update { it.copy(secureScreen = !it.secureScreen) } } },
             )
             GroupRow(
                 stringResource(R.string.settings_app_lock),
                 supporting = stringResource(R.string.settings_app_lock_body),
-                trailing = { Switch(settings.appLock, ::setLock) },
+                trailing = { StashSwitch(settings.appLock, ::setLock) },
                 onClick = { setLock(!settings.appLock) },
             )
         }

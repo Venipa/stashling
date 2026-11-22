@@ -45,12 +45,10 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -82,6 +80,7 @@ import net.venipa.stashling.core.whisparr.PanelState
 import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.AppBottomSheet
 import net.venipa.stashling.ds.AppSnackbar
+import net.venipa.stashling.ds.LocalStashHaptics
 import net.venipa.stashling.ds.SkeletonText
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
@@ -112,7 +111,7 @@ fun SwipeActions(
 ) {
     val press by rememberUpdatedState(onPress)
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
-    val haptic = LocalHapticFeedback.current
+    val haptic = LocalStashHaptics.current
     var width by remember { mutableIntStateOf(0) }
     // Logical offset: positive = towards the end.
     var dx by remember { mutableFloatStateOf(0f) }
@@ -126,7 +125,7 @@ fun SwipeActions(
         else -> SwipeStage.None
     }
     val stage = stageOf(dx)
-    LaunchedEffect(stage) { if (stage != SwipeStage.None) haptic.performHapticFeedback(HapticFeedbackType.GestureThresholdActivate) }
+    LaunchedEffect(stage) { if (stage != SwipeStage.None) haptic.threshold() }
     val settle = MaterialTheme.motionScheme.fastEffectsSpec<Float>()
     val cs = MaterialTheme.colorScheme
     val (bg, fg) = when (stage) {
@@ -158,6 +157,7 @@ fun SwipeActions(
                 },
                 Orientation.Horizontal,
                 onDragStopped = {
+                    if (stageOf(dx) != SwipeStage.None) haptic.confirm()
                     when (stageOf(dx)) {
                         SwipeStage.Add -> onAdd()
                         SwipeStage.HideScene -> onHideScene()

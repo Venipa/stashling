@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.data.ThemeMode
+import net.venipa.stashling.ds.ProvideStashHaptics
 import net.venipa.stashling.ds.RevealingStashlingTheme
 import net.venipa.stashling.feature.lock.LockOverlay
 import net.venipa.stashling.nav.AppNav
@@ -51,10 +52,12 @@ class MainActivity : FragmentActivity() {
                     dynamicColor = settings.dynamicColor,
                 ) {
                     // Sets background and LocalContentColor (onBackground).
-                    Surface(Modifier.fillMaxSize()) {
-                        Box(Modifier.fillMaxSize()) {
-                            AppNav(deepLinkScene, onDeepLinkHandled = { deepLinkScene = null })
-                            LockOverlay(lock)
+                    ProvideStashHaptics(settings.haptics) {
+                        Surface(Modifier.fillMaxSize()) {
+                            Box(Modifier.fillMaxSize()) {
+                                AppNav(deepLinkScene, onDeepLinkHandled = { deepLinkScene = null })
+                                LockOverlay(lock)
+                            }
                         }
                     }
                 }

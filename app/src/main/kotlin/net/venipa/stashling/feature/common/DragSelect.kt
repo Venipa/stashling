@@ -14,11 +14,9 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.PointerEventPass
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
@@ -27,6 +25,7 @@ import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
+import net.venipa.stashling.ds.LocalStashHaptics
 
 /** The selection while a drag runs from [anchor] to [current] (either direction) over [keys]: [base] plus that range. Moving back shrinks it again. */
 fun dragSelection(
@@ -53,7 +52,7 @@ fun Modifier.dragSelect(
     val currentKeys by rememberUpdatedState(keys)
     val currentSelected by rememberUpdatedState(selected)
     val change by rememberUpdatedState(onChange)
-    val haptics = LocalHapticFeedback.current
+    val haptic = LocalStashHaptics.current
     val rtl = LocalLayoutDirection.current == LayoutDirection.Rtl
     val density = LocalDensity.current
     val startPx = with(density) { startPadding.roundToPx() }
@@ -74,7 +73,11 @@ fun Modifier.dragSelect(
     fun update(pos: Offset) {
         drag.pos = pos
         val i = indexAt(pos) ?: return
-        if (drag.anchor >= 0 && i < currentKeys.size) change(dragSelection(drag.base, currentKeys, drag.anchor, i))
+        if (drag.anchor >= 0 && i < currentKeys.size) {
+            val next = dragSelection(drag.base, currentKeys, drag.anchor, i)
+            if (next != currentSelected) haptic.tick()
+            change(next)
+        }
     }
 
     LaunchedEffect(speed) {
@@ -92,7 +95,7 @@ fun Modifier.dragSelect(
             val down = awaitFirstDown(requireUnconsumed = false)
             val long = awaitLongPressOrCancellation(down.id) ?: return@awaitEachGesture
             val start = indexAt(long.position) ?: return@awaitEachGesture
-            haptics.performHapticFeedback(HapticFeedbackType.LongPress)
+            haptic.longPress()
             drag.anchor = start
             drag.base = currentSelected
             update(long.position)

@@ -40,9 +40,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -69,7 +67,7 @@ fun GlassDock(
     onHeightChanged: (Int) -> Unit = {},
     top: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
-    val haptic = LocalHapticFeedback.current
+    val haptic = LocalStashHaptics.current
     val reduce = LocalReduceMotion.current
     Box(modifier, contentAlignment = Alignment.BottomCenter) {
         Column(
@@ -109,7 +107,7 @@ fun GlassDock(
             ) {
                 tabs.forEachIndexed { i, tab ->
                     DockTabItem(tab, i == selected, Modifier.weight(1f)) {
-                        if (i != selected) haptic.performHapticFeedback(HapticFeedbackType.SegmentTick)
+                        if (i != selected) haptic.tick()
                         onSelect(i)
                     }
                 }

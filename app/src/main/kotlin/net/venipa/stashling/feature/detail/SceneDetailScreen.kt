@@ -58,6 +58,7 @@ import net.venipa.stashling.ds.ActionSheet
 import net.venipa.stashling.ds.CardTone
 import net.venipa.stashling.ds.GlassIconButton
 import net.venipa.stashling.ds.GroupRow
+import net.venipa.stashling.ds.LocalStashHaptics
 import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.SheetAction
 import net.venipa.stashling.ds.Space
@@ -114,7 +115,11 @@ fun SceneDetailScreen(
     val load by vm.state.collectAsState()
     val bookmarked by vm.actions.bookmarked.collectAsState()
     LoadGate(load, onBack, vm::load) { scene ->
-        SceneBody(scene, bookmarked, onBack, { vm.toggleBookmark(scene) }, onOpenPerformer, onOpenStudio, onOpenTag, onOpenGallery)
+        val haptic = LocalStashHaptics.current
+        SceneBody(scene, bookmarked, onBack, {
+            haptic.confirm()
+            vm.toggleBookmark(scene)
+        }, onOpenPerformer, onOpenStudio, onOpenTag, onOpenGallery)
     }
 }
 

@@ -62,6 +62,7 @@ fun StashSegmented(
     icons: List<ImageVector>? = null,
 ) {
     val cs = MaterialTheme.colorScheme
+    val haptic = LocalStashHaptics.current
     // Equal fixed widths and one shared height: selecting never shifts the layout. The selection is one indicator
     // that slides on the expressive spatial spring; buttons stay transparent on top. Concentric: track = button + pad.
     val buttonShape = RoundedCornerShape(SegmentRadius)
@@ -95,7 +96,12 @@ fun StashSegmented(
             options.forEachIndexed { i, label ->
                 ToggleButton(
                     checked = i == selected,
-                    onCheckedChange = { if (it) onSelect(i) },
+                    onCheckedChange = {
+                        if (it) {
+                            haptic.tick()
+                            onSelect(i)
+                        }
+                    },
                     modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp),
                     shapes = shapes,
                     // 8dp sides (default 16) so four labels such as "Performers" fit one line on a phone.

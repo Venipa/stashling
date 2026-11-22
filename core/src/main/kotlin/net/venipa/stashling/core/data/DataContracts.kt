@@ -88,6 +88,7 @@ data class Settings(
     val tagRules: List<TagRule> = emptyList(),
     /** Browse search history: last 10, newest first. */
     val recentSearches: List<String> = emptyList(),
+    val haptics: Boolean = true,
 ) {
     /** Default first, then the custom ones. */
     val allPresets: List<WhisparrPreset> get() = listOf(whisparr.asPreset()) + presets

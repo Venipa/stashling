@@ -8,7 +8,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
@@ -24,6 +23,7 @@ import net.venipa.stashling.core.whisparr.RootFolder
 import net.venipa.stashling.ds.AppBottomSheet
 import net.venipa.stashling.ds.GroupRow
 import net.venipa.stashling.ds.Space
+import net.venipa.stashling.ds.StashSwitch
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
 import net.venipa.stashling.ds.sheetTitle
@@ -53,7 +53,7 @@ fun WhisparrDefaultsEditor(
         GroupRow(
             stringResource(R.string.settings_search_on_add),
             supporting = stringResource(R.string.settings_search_on_add_body),
-            trailing = { Switch(defaults.searchOnAdd, { onChange(defaults.copy(searchOnAdd = it)) }) },
+            trailing = { StashSwitch(defaults.searchOnAdd, { onChange(defaults.copy(searchOnAdd = it)) }) },
             onClick = { onChange(defaults.copy(searchOnAdd = !defaults.searchOnAdd)) },
         )
     }

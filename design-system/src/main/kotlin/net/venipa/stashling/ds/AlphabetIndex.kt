@@ -27,10 +27,8 @@ import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -85,7 +83,7 @@ fun AlphabetRail(
     current: Char? = null,
 ) {
     val scope = rememberCoroutineScope()
-    val haptic = LocalHapticFeedback.current
+    val haptic = LocalStashHaptics.current
     val present by rememberUpdatedState(positions)
     val jump by rememberUpdatedState(onJump)
     val seekBy by rememberUpdatedState(seek)
@@ -103,7 +101,7 @@ fun AlphabetRail(
         val letter = if (s != null) INDEX_LETTERS[i] else INDEX_LETTERS.drop(i).firstOrNull { it in present } ?: INDEX_LETTERS.take(i).lastOrNull { it in present } ?: return
         if (letter != active) {
             active = letter
-            haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
+            haptic.scrub()
             if (s != null) {
                 // Dragging over letters: only the last one's seek runs to the end.
                 seekJob?.cancel()

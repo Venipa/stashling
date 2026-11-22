@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
@@ -50,9 +49,11 @@ import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.ds.ActionSheet
 import net.venipa.stashling.ds.AppSnackbar
 import net.venipa.stashling.ds.GroupRow
+import net.venipa.stashling.ds.LocalStashHaptics
 import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.SheetAction
 import net.venipa.stashling.ds.Space
+import net.venipa.stashling.ds.StashFilterChip
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
 import net.venipa.stashling.ds.concentricShape
@@ -175,8 +176,15 @@ fun PerformerDetailScreen(
             topBar = {
                 StashTopBar(p.name, onBack, actions = {
                     ListModeToggle(mode)
-                    IconButton({ vm.toggleFavorite(p) }) { Icon(if (favorite) BrowseIcons.FavoriteFilled else BrowseIcons.Favorite, stringResource(if (favorite) R.string.detail_unfavorite else R.string.detail_favorite)) }
-                    IconButton({ vm.toggleBookmark(p) }) { Icon(if (bookmarked) BrowseIcons.BookmarkFilled else BrowseIcons.Bookmark, stringResource(if (bookmarked) R.string.detail_unbookmark else R.string.detail_bookmark)) }
+                    val haptic = LocalStashHaptics.current
+                    IconButton({
+                        haptic.confirm()
+                        vm.toggleFavorite(p)
+                    }) { Icon(if (favorite) BrowseIcons.FavoriteFilled else BrowseIcons.Favorite, stringResource(if (favorite) R.string.detail_unfavorite else R.string.detail_favorite)) }
+                    IconButton({
+                        haptic.confirm()
+                        vm.toggleBookmark(p)
+                    }) { Icon(if (bookmarked) BrowseIcons.BookmarkFilled else BrowseIcons.Bookmark, stringResource(if (bookmarked) R.string.detail_unbookmark else R.string.detail_bookmark)) }
                     IconButton({ menu = true }) { Icon(StashlingIcons.More, stringResource(R.string.library_more)) }
                 })
             },
@@ -197,7 +205,7 @@ fun PerformerDetailScreen(
                     fullSpan("studios") {
                         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
                             p.studios.sortedByDescending { it.second }.forEach { (s, n) ->
-                                FilterChip(studioId == s.id, { vm.filterStudio(if (studioId == s.id) null else s.id) }, { Text("${s.name} · $n") })
+                                StashFilterChip(studioId == s.id, { vm.filterStudio(if (studioId == s.id) null else s.id) }, { Text("${s.name} · $n") })
                             }
                         }
                     }

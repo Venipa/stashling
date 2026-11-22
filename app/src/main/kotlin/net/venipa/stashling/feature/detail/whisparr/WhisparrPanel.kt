@@ -23,7 +23,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -58,11 +57,13 @@ import net.venipa.stashling.ds.AppBottomSheet
 import net.venipa.stashling.ds.CardTone
 import net.venipa.stashling.ds.EmptyState
 import net.venipa.stashling.ds.HeroCardRadius
+import net.venipa.stashling.ds.LocalStashHaptics
 import net.venipa.stashling.ds.LongOperationCard
 import net.venipa.stashling.ds.PillTone
 import net.venipa.stashling.ds.SheetRadius
 import net.venipa.stashling.ds.SkeletonBox
 import net.venipa.stashling.ds.Space
+import net.venipa.stashling.ds.StashSwitch
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.StatusPill
 import net.venipa.stashling.ds.TonalCard
@@ -259,7 +260,7 @@ private fun MonitoredRow(
     onChange: (Boolean) -> Unit,
 ) = Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
     Text(stringResource(R.string.whisparr_monitored), Modifier.weight(1f), style = MaterialTheme.typography.bodyLarge)
-    Switch(scene.monitored, onChange, enabled = enabled)
+    StashSwitch(scene.monitored, onChange, enabled = enabled)
 }
 
 @Composable
@@ -292,8 +293,10 @@ private fun ButtonGroup(
 ) = Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
     // The pressed button shows the loading state while an action runs; the others stay disabled.
     var active by remember { mutableIntStateOf(-1) }
+    val haptic = LocalStashHaptics.current
     buttons.forEachIndexed { i, b ->
         ActionButton(b.text, {
+            haptic.confirm()
             active = i
             b.onClick()
         }, enabled = enabled || active == i, loading = !enabled && active == i, tonal = b.tonal, icon = b.icon, shape = groupItemShape(i, buttons.size, outer = concentric(HeroCardRadius, 20.dp)))
@@ -320,7 +323,11 @@ private fun ReleaseSheet(
                     itemsIndexed(ui.items, key = { _, r -> "${r.indexerId}_${r.guid}" }) { i, r ->
                         // Sheet content sits Space.L inside the 28dp sheet: the group takes the concentric radius.
                         val shape = groupItemShape(i, ui.items.size, outer = concentric(SheetRadius, Space.L))
-                        ReleaseRow(r, shape, grabbing = ui.grabbing == r.guid, enabled = ui.grabbing == null) { onGrab(r) }
+                        val haptic = LocalStashHaptics.current
+                        ReleaseRow(r, shape, grabbing = ui.grabbing == r.guid, enabled = ui.grabbing == null) {
+                            haptic.confirm()
+                            onGrab(r)
+                        }
                     }
                 }
         }

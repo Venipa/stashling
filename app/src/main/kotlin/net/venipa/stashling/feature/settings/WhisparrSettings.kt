@@ -24,7 +24,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.InputChip
@@ -35,7 +34,6 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
-import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
@@ -54,11 +52,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -105,10 +101,13 @@ import net.venipa.stashling.ds.GroupRow
 import net.venipa.stashling.ds.Gutter
 import net.venipa.stashling.ds.LoadingSkeleton
 import net.venipa.stashling.ds.LocalReduceMotion
+import net.venipa.stashling.ds.LocalStashHaptics
 import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.SheetRadius
 import net.venipa.stashling.ds.SkeletonBox
 import net.venipa.stashling.ds.Space
+import net.venipa.stashling.ds.StashFilterChip
+import net.venipa.stashling.ds.StashSwitch
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
 import net.venipa.stashling.ds.TransitionSpecs
@@ -253,7 +252,7 @@ internal fun WhisparrAccountGroup(onRerun: (Int) -> Unit) {
             GroupRow(
                 stringResource(R.string.onboarding_ignore_cert),
                 supporting = stringResource(R.string.settings_ignore_cert_body),
-                trailing = { Switch(w.ignoreCertErrors, { v -> scope.launch { container.secrets.setWhisparr(w.copy(ignoreCertErrors = v)) } }) },
+                trailing = { StashSwitch(w.ignoreCertErrors, { v -> scope.launch { container.secrets.setWhisparr(w.copy(ignoreCertErrors = v)) } }) },
                 onClick = { scope.launch { container.secrets.setWhisparr(w.copy(ignoreCertErrors = !w.ignoreCertErrors)) } },
             )
             GroupRow(stringResource(R.string.settings_disconnect), supporting = stringResource(R.string.settings_disconnect_whisparr_body), onClick = { confirm = true })
@@ -401,7 +400,7 @@ private fun PresetEditPage(
                 FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
                     tags.forEach { t ->
                         val on = t.id in d.whisparrTagIds
-                        FilterChip(
+                        StashFilterChip(
                             on,
                             { draft = d.copy(whisparrTagIds = if (on) d.whisparrTagIds - t.id else d.whisparrTagIds + t.id) },
                             { Text(t.label) },
@@ -530,7 +529,7 @@ private fun RuleList(
     var offset by remember { mutableFloatStateOf(0f) }
     var rowPx by remember { mutableIntStateOf(1) }
     val gapPx = with(LocalDensity.current) { 2.dp.toPx() }
-    val haptic = LocalHapticFeedback.current
+    val haptic = LocalStashHaptics.current
     val cs = MaterialTheme.colorScheme
     val dragLabel = stringResource(R.string.settings_rule_drag)
 
@@ -564,7 +563,7 @@ private fun RuleList(
                                     .pointerInput(rule.stashTagId) {
                                         detectDragGesturesAfterLongPress(
                                             onDragStart = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                haptic.longPress()
                                                 dragging = rule.stashTagId
                                                 offset = 0f
                                             },
