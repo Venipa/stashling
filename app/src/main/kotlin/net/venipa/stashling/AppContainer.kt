@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.venipa.stashling.core.data.BookmarkRepository
+import net.venipa.stashling.core.data.HiddenRepository
 import net.venipa.stashling.core.data.RoomBookmarkRepository
 import net.venipa.stashling.core.data.SecretStore
 import net.venipa.stashling.core.data.SecretStoreImpl
@@ -35,6 +36,7 @@ class AppContainer(context: Context) {
     // stashling.db, kept out of backup (data_extraction_rules.xml).
     private val db by lazy { StashlingDatabase.open(context) }
     val bookmarks: BookmarkRepository by lazy { RoomBookmarkRepository(db.bookmarks()) }
+    val hidden: HiddenRepository by lazy { HiddenRepository(db.hidden()) }
 
     // StashDB: its own client (https only, no redirects); the key is read per call, so a re-login needs no rebuild.
     // Cached: renavigating never refetches; pull-to-refresh calls stash.invalidate(). A new account starts empty.

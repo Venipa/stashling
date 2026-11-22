@@ -25,6 +25,8 @@ data class SceneCard(
     val studio: StudioRef?,
     val cover: Image?,
     val performers: List<String>,
+    /** Same order as [performers]; used to hide scenes of hidden performers. */
+    val performerIds: List<String> = emptyList(),
 )
 
 data class Scene(

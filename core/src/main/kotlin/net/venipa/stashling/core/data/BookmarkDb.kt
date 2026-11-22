@@ -1,6 +1,7 @@
 package net.venipa.stashling.core.data
 
 import android.content.Context
+import androidx.room.AutoMigration
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
@@ -54,9 +55,11 @@ interface BookmarkDao {
     }
 }
 
-@Database(entities = [BookmarkEntity::class], version = 1, exportSchema = true)
+@Database(entities = [BookmarkEntity::class, HiddenEntity::class], version = 2, exportSchema = true, autoMigrations = [AutoMigration(from = 1, to = 2)])
 abstract class StashlingDatabase : RoomDatabase() {
     abstract fun bookmarks(): BookmarkDao
+
+    abstract fun hidden(): HiddenDao
 
     companion object {
         /** File name is fixed: data_extraction_rules.xml keeps it (and -wal/-shm) out of backup. */
