@@ -151,7 +151,10 @@ class KtorWhisparrApi(
     // Whisparr searches every indexer inside this request.
     override suspend fun releases(movieId: Int): List<Release> = get("release") {
         parameter("movieId", movieId)
-        timeout { requestTimeoutMillis = RELEASES_TIMEOUT_MS }
+        timeout {
+            requestTimeoutMillis = RELEASES_TIMEOUT_MS
+            socketTimeoutMillis = RELEASES_TIMEOUT_MS
+        }
     }
 
     override suspend fun grab(
@@ -231,7 +234,7 @@ class KtorWhisparrApi(
     }
 
     companion object {
-        const val RELEASES_TIMEOUT_MS = 120_000L
+        const val RELEASES_TIMEOUT_MS = 300_000L // Indexer searches may take up to 5 min
     }
 }
 
