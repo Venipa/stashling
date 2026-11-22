@@ -196,4 +196,7 @@
     <string name="hidden_unhide">Unhide</string>
     <string name="hidden_empty">Nothing hidden</string>
     <string name="hidden_empty_body">Swipe a scene on Home towards the start to hide it, or further to hide its performer.</string>
+    <string name="badge_downloaded">Downloaded in Whisparr</string>
+    <string name="badge_downloading">Downloading in Whisparr</string>
+    <string name="badge_in_library">Wanted in Whisparr</string>
 </resources>

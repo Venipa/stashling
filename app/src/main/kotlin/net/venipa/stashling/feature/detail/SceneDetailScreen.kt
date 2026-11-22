@@ -86,9 +86,11 @@ import net.venipa.stashling.feature.common.PortraitAvatar
 import net.venipa.stashling.feature.common.PortraitTextInset
 import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.apiValue
+import net.venipa.stashling.feature.common.containerTransform
 import net.venipa.stashling.feature.common.formatDuration
 import net.venipa.stashling.feature.common.loadOf
 import net.venipa.stashling.feature.common.openLink
+import net.venipa.stashling.feature.common.performerTransformKey
 import net.venipa.stashling.feature.common.rememberPerformerMenu
 import net.venipa.stashling.feature.common.stashWebUrl
 import net.venipa.stashling.feature.detail.whisparr.WhisparrPanel
@@ -210,7 +212,7 @@ private fun SceneBody(
                         @Composable
                         fun Tile(p: net.venipa.stashling.core.stash.PerformerRef) {
                             val menu = rememberPerformerMenu(p, MaterialTheme.shapes.medium)
-                            PortraitAvatar(p.name, p.thumbnail?.sized(300), { onOpenPerformer(p.id) }, menu.modifier.padding(end = Space.M), supporting = p.asName?.let { stringResource(R.string.detail_as, it) }, onLongClick = menu.open)
+                            PortraitAvatar(p.name, p.thumbnail?.sized(300), { onOpenPerformer(p.id) }, menu.modifier.padding(end = Space.M).containerTransform(performerTransformKey(p.id), MaterialTheme.shapes.medium), supporting = p.asName?.let { stringResource(R.string.detail_as, it) }, onLongClick = menu.open)
                         }
                         shown.forEach { Tile(it) }
                         if (hidden.isNotEmpty()) {

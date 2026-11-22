@@ -31,7 +31,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,7 +45,6 @@ import net.venipa.stashling.core.whisparr.WhisparrScene
 import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.ActionSheet
 import net.venipa.stashling.ds.CardTone
-import net.venipa.stashling.ds.CollapsingHeader
 import net.venipa.stashling.ds.ConfirmSheet
 import net.venipa.stashling.ds.EmptyState
 import net.venipa.stashling.ds.LoadingPill
@@ -60,10 +58,8 @@ import net.venipa.stashling.ds.StatusPill
 import net.venipa.stashling.ds.TonalCard
 import net.venipa.stashling.ds.groupItemShape
 import net.venipa.stashling.ds.readableWidth
-import net.venipa.stashling.ds.rememberCollapsingHeader
 import net.venipa.stashling.feature.common.LocalNetworkNotice
 import net.venipa.stashling.feature.common.SceneRowSkeleton
-import net.venipa.stashling.feature.common.StashTopBar
 import net.venipa.stashling.feature.common.localNetworkMissing
 import net.venipa.stashling.feature.common.openLink
 import net.venipa.stashling.feature.common.tabViewModel
@@ -71,6 +67,7 @@ import net.venipa.stashling.feature.detail.whisparr.QueueProgress
 import net.venipa.stashling.feature.detail.whisparr.queueLabel
 import net.venipa.stashling.nav.BrowseRoute
 import net.venipa.stashling.nav.LocalDockInset
+import net.venipa.stashling.nav.LocalDockTop
 import net.venipa.stashling.nav.LocalNavigator
 import net.venipa.stashling.nav.OnboardingRoute
 import net.venipa.stashling.nav.SceneDetailRoute
@@ -82,7 +79,6 @@ import net.venipa.stashling.nav.SceneDetailRoute
 @Composable
 fun DownloadsScreen(
     connected: Boolean,
-    librarySwitch: @Composable () -> Unit,
 ) {
     val container = LocalAppContainer.current
     val vm: DownloadsViewModel = tabViewModel { DownloadsViewModel(container) }
@@ -103,23 +99,15 @@ fun DownloadsScreen(
     var actionsFor by remember { mutableStateOf<QueueItem?>(null) }
     var confirm by remember { mutableStateOf<Pair<QueueItem, Boolean>?>(null) }
 
-    val header = rememberCollapsingHeader()
-    Scaffold(
-        Modifier.nestedScroll(header.connection),
-        topBar = {
-            CollapsingHeader(header) {
-                StashTopBar(stringResource(R.string.nav_library))
-                librarySwitch()
-            }
-        },
-    ) { padding ->
+    // Pure content under the status-bar band; Saved | Downloads lives on the dock.
+    Scaffold { padding ->
         val dock = LocalDockInset.current
         val firstLoad = connected && queue.items == null
         Box(Modifier.fillMaxSize()) {
             RefreshBox(refreshing, vm::refresh, Modifier.fillMaxSize()) {
                 LazyColumn(
                     Modifier.fillMaxSize().readableWidth(),
-                    contentPadding = PaddingValues(start = Space.L, end = Space.L, top = padding.calculateTopPadding() + Space.S, bottom = padding.calculateBottomPadding() + dock + Space.L),
+                    contentPadding = PaddingValues(start = Space.L, end = Space.L, top = padding.calculateTopPadding() + LocalDockTop.current + Space.S, bottom = padding.calculateBottomPadding() + dock + Space.L),
                     // 2dp: rows of a status form one connected group (concentric).
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {

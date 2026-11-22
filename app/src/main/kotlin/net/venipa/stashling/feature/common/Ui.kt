@@ -43,6 +43,7 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -68,11 +69,13 @@ import coil3.compose.AsyncImagePainter
 import coil3.request.ImageRequest
 import coil3.request.crossfade
 import kotlinx.coroutines.flow.filter
+import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.core.data.BookmarkKind
 import net.venipa.stashling.core.data.ListMode
 import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.StashError
+import net.venipa.stashling.core.whisparr.LibraryBadge
 import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.EmptyState
 import net.venipa.stashling.ds.LoadingPill
@@ -226,10 +229,11 @@ fun PosterTile(
     modifier: Modifier = Modifier,
     fit: Boolean = false,
     onLongClick: (() -> Unit)? = null,
+    badge: LibraryBadge? = null,
 ) = Tile(onClick, modifier, onLongClick) {
     val shape = concentricShape(CardOuter, CardPad)
     if (imageUrl != null) {
-        StashImage(imageUrl, Modifier.fillMaxWidth().aspectRatio(aspect).clip(shape), scale = if (fit) ContentScale.Fit else ContentScale.Crop)
+        BadgedImage(badge) { StashImage(imageUrl, Modifier.fillMaxWidth().aspectRatio(aspect).clip(shape), scale = if (fit) ContentScale.Fit else ContentScale.Crop) }
     } else {
         Box(Modifier.fillMaxWidth().aspectRatio(aspect).clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh).padding(Space.M), contentAlignment = Alignment.Center) {
             Text(title, style = MaterialTheme.typography.titleMedium, textAlign = TextAlign.Center, maxLines = 4, overflow = TextOverflow.Ellipsis)
@@ -246,9 +250,10 @@ fun SceneCardTile(
     scene: SceneCard,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
+    badge: LibraryBadge? = null,
     onClick: () -> Unit,
 ) = Tile(onClick, modifier, onLongClick) {
-    StashImage(scene.cover?.sized(600), Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(concentricShape(CardOuter, CardPad)))
+    BadgedImage(badge) { StashImage(scene.cover?.sized(600), Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(concentricShape(CardOuter, CardPad))) }
     Column(Modifier.padding(horizontal = Space.S).padding(bottom = Space.Xs)) {
         Text(scene.title ?: stringResource(R.string.browse_untitled), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(scene.meta(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -263,8 +268,9 @@ fun SceneRow(
     count: Int,
     modifier: Modifier = Modifier,
     onLongClick: (() -> Unit)? = null,
+    badge: LibraryBadge? = null,
     onClick: () -> Unit,
-) = MediaRow(scene.title ?: stringResource(R.string.browse_untitled), scene.meta(), scene.cover?.sized(300), index, count, onClick, modifier, onLongClick = onLongClick)
+) = MediaRow(scene.title ?: stringResource(R.string.browse_untitled), scene.meta(), scene.cover?.sized(300), index, count, onClick, modifier, onLongClick = onLongClick, badge = badge)
 
 /** [SceneRow] from plain values (bookmarks store a sized url already). */
 @Composable
@@ -278,6 +284,7 @@ fun MediaRow(
     modifier: Modifier = Modifier,
     scale: ContentScale = ContentScale.Crop,
     onLongClick: (() -> Unit)? = null,
+    badge: LibraryBadge? = null,
 ) = Row(
     modifier
         .fillMaxWidth()
@@ -298,7 +305,57 @@ fun MediaRow(
     StashImage(imageUrl, Modifier.width(112.dp).aspectRatio(16f / 9f).clip(thumb), scale = scale)
     Column(Modifier.weight(1f)) {
         Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        meta?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        if (meta != null || badge != null) {
+            Row(horizontalArrangement = Arrangement.spacedBy(Space.Xs), verticalAlignment = Alignment.CenterVertically) {
+                meta?.let { Text(it, Modifier.weight(1f, fill = false), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+                badge?.let { BadgeIcon(it, Modifier.size(16.dp)) }
+            }
+        }
+    }
+}
+
+private fun LibraryBadge.icon() = when (this) {
+    LibraryBadge.DOWNLOADED -> StashlingIcons.CheckCircle
+    LibraryBadge.DOWNLOADING -> StashlingIcons.Download
+    LibraryBadge.IN_LIBRARY -> BrowseIcons.Bookmark
+}
+
+private fun LibraryBadge.label() = when (this) {
+    LibraryBadge.DOWNLOADED -> R.string.badge_downloaded
+    LibraryBadge.DOWNLOADING -> R.string.badge_downloading
+    LibraryBadge.IN_LIBRARY -> R.string.badge_in_library
+}
+
+/** Whisparr state of a scene: downloaded = primary check, downloading = download, wanted = bookmark outline. */
+@Composable
+private fun BadgeIcon(
+    badge: LibraryBadge,
+    modifier: Modifier,
+) {
+    val cs = MaterialTheme.colorScheme
+    val tint = when (badge) {
+        LibraryBadge.DOWNLOADED -> cs.primary
+        LibraryBadge.DOWNLOADING -> cs.onSurface
+        LibraryBadge.IN_LIBRARY -> cs.onSurfaceVariant
+    }
+    Icon(badge.icon(), stringResource(badge.label()), modifier, tint = tint)
+}
+
+// The badge's top-end corner is concentric to the card image's corner (8dp) at the 6dp inset; the other corners are round.
+private val BadgeInset = 6.dp
+private val BadgeShape = RoundedCornerShape(topStart = 13.dp, topEnd = concentric(concentric(CardOuter, CardPad), BadgeInset), bottomEnd = 13.dp, bottomStart = 13.dp)
+
+/** [image] with the Whisparr badge as a tonal pill on its top-end corner; nothing extra when [badge] is null. */
+@Composable
+private fun BadgedImage(
+    badge: LibraryBadge?,
+    image: @Composable () -> Unit,
+) = Box {
+    image()
+    if (badge != null) {
+        Box(Modifier.align(Alignment.TopEnd).padding(BadgeInset).clip(BadgeShape).background(MaterialTheme.colorScheme.surfaceContainerHigh.copy(alpha = 0.9f)).padding(4.dp)) {
+            BadgeIcon(badge, Modifier.size(18.dp))
+        }
     }
 }
 
@@ -445,6 +502,25 @@ fun ScenesGrid(
     gridState: LazyGridState = rememberLazyGridState(),
     header: (LazyGridScope.() -> Unit)? = null,
     onRefresh: (() -> Unit)? = null,
+) {
+    // One collector per grid for the Whisparr tile badges (stashId -> state).
+    val badges by LocalAppContainer.current.whisparrIndex.collectAsState()
+    ScenesPagedGrid(state, mode, contentPadding, onMore, onRetry, onOpen, modifier, gridState, header, onRefresh, badges)
+}
+
+@Composable
+private fun ScenesPagedGrid(
+    state: PagedState<SceneCard>,
+    mode: ListMode,
+    contentPadding: PaddingValues,
+    onMore: () -> Unit,
+    onRetry: () -> Unit,
+    onOpen: (String) -> Unit,
+    modifier: Modifier,
+    gridState: LazyGridState,
+    header: (LazyGridScope.() -> Unit)?,
+    onRefresh: (() -> Unit)?,
+    badges: Map<String, LibraryBadge>,
 ) = PagedGrid(
     state,
     { it.id },
@@ -464,7 +540,9 @@ fun ScenesGrid(
     // Long-press menu and swipe actions on every scene list (Library uses its own rows, so neither there).
     val menu = rememberSceneMenu(s, shape)
     val tile: @Composable () -> Unit = {
-        if (mode == ListMode.CARDS) SceneCardTile(s, menu.modifier, menu.open) { onOpen(s.id) } else SceneRow(s, i, state.items.size, menu.modifier, menu.open) { onOpen(s.id) }
+        val m = menu.modifier.containerTransform(sceneTransformKey(s.id), shape)
+        val badge = badges[s.id]
+        if (mode == ListMode.CARDS) SceneCardTile(s, m, menu.open, badge) { onOpen(s.id) } else SceneRow(s, i, state.items.size, m, menu.open, badge) { onOpen(s.id) }
     }
     SwipeableScene(s, shape, tile)
 }

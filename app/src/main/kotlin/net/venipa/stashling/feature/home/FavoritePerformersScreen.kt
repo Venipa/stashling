@@ -43,6 +43,8 @@ import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.PagedGrid
 import net.venipa.stashling.feature.common.PosterTile
 import net.venipa.stashling.feature.common.apiValue
+import net.venipa.stashling.feature.common.containerTransform
+import net.venipa.stashling.feature.common.performerTransformKey
 import net.venipa.stashling.feature.common.rememberPerformerMenu
 
 /** All StashDB favorite performers, name ascending (the A–Z rail seeks server-side), honoring the performer gender setting. */
@@ -101,7 +103,7 @@ fun FavoritePerformersScreen(
             ) { _, perf ->
                 val image = perf.images.firstOrNull() ?: perf.thumbnail
                 val menu = rememberPerformerMenu(PerformerRef(perf.id, perf.name, perf.disambiguation, null, image), RoundedCornerShape(16.dp))
-                PosterTile(perf.name, stringResource(R.string.browse_scenes_count, perf.sceneCount), image?.sized(300), 2f / 3f, { onOpenPerformer(perf.id) }, menu.modifier, onLongClick = menu.open)
+                PosterTile(perf.name, stringResource(R.string.browse_scenes_count, perf.sceneCount), image?.sized(300), 2f / 3f, { onOpenPerformer(perf.id) }, menu.modifier.containerTransform(performerTransformKey(perf.id), RoundedCornerShape(16.dp)), onLongClick = menu.open)
             }
         }
     }

@@ -44,11 +44,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
-import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.graphicsLayer
-import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
-import androidx.compose.ui.input.nestedscroll.NestedScrollSource
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
@@ -79,6 +75,8 @@ import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.AppBottomSheet
 import net.venipa.stashling.ds.AppSnackbar
+import net.venipa.stashling.ds.DockItemShape
+import net.venipa.stashling.ds.DockScrollState
 import net.venipa.stashling.ds.GlassCorner
 import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.SkeletonText
@@ -97,15 +95,18 @@ import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.apiValue
 import net.venipa.stashling.feature.common.collectVisible
+import net.venipa.stashling.feature.common.containerTransform
 import net.venipa.stashling.feature.common.fullSpan
 import net.venipa.stashling.feature.common.groupShape
 import net.venipa.stashling.feature.common.javTagId
 import net.venipa.stashling.feature.common.listPadding
+import net.venipa.stashling.feature.common.performerTransformKey
 import net.venipa.stashling.feature.common.rememberPerformerMenu
 import net.venipa.stashling.feature.common.rememberSceneListMode
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.feature.common.withRegion
 import net.venipa.stashling.nav.LocalDockInset
+import net.venipa.stashling.nav.LocalDockTop
 
 enum class HomeTab(val label: Int) {
     Trending(R.string.home_trending),
@@ -128,9 +129,6 @@ class HomeViewModel(c: AppContainer) : ViewModel() {
 
     /** Performers favorited on StashDB (avatar row); empty hides it. */
     val favorites = MutableStateFlow<List<Performer>>(emptyList())
-
-    /** The dock controls shrink to the active source + filter while scrolling down. */
-    val collapsed = MutableStateFlow(false)
 
     private fun filter(tab: HomeTab, region: Region): SceneFilter = when (tab) {
         HomeTab.Trending -> SceneFilter(sort = SceneSort.TRENDING)
@@ -198,19 +196,7 @@ fun HomeScreen(
     val loader = vm.loader(tab, effective)
     val state = loader.collectVisible()
     val mode by rememberSceneListMode()
-    val scroll = remember(vm) {
-        object : NestedScrollConnection {
-            override fun onPostScroll(consumed: Offset, available: Offset, source: NestedScrollSource): Offset {
-                if (consumed.y < -4f) {
-                    vm.collapsed.value = true
-                } else if (consumed.y > 4f) {
-                    vm.collapsed.value = false
-                }
-                return Offset.Zero
-            }
-        }
-    }
-    val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + LocalDockTop.current
     val grid = vm.gridState(tab, effective)
     // The carousel arrives after the first scenes; the grid keeps the first scene anchored, so show the new header when at the top.
     val hasFavorites = favorites.isNotEmpty()
@@ -224,7 +210,7 @@ fun HomeScreen(
         loader::loadMore,
         loader::retry,
         onOpenScene,
-        Modifier.background(MaterialTheme.colorScheme.background).nestedScroll(scroll),
+        Modifier.background(MaterialTheme.colorScheme.background),
         gridState = grid,
         header = if (!hasFavorites) null else ({ fullSpan("favorites") { FavoritesRow(favorites, onOpenPerformer, onViewAll) } }),
         onRefresh = vm::refresh,
@@ -254,27 +240,28 @@ private fun FavoritesRow(
             image?.sized(300),
             2f / 3f,
             { onOpen(p.id) },
-            menu.modifier.maskClip(RoundedCornerShape(16.dp)),
+            menu.modifier.containerTransform(performerTransformKey(p.id), RoundedCornerShape(16.dp)).maskClip(RoundedCornerShape(16.dp)),
             onLongClick = menu.open,
         )
     }
 }
 
-// Rows sit 8dp inside the 28dp dock: concentric 20dp, same as the tab pills.
-private val DockItemShape = concentricShape(GlassCorner, 8.dp)
-
 /**
- * Home's controls attached to the glass dock: source chips + filter button with badge. Collapsed only the active
- * source stays, the others shrink away; tapping it expands again. The filter sheet holds region (2B) and the cards/rows layout.
+ * Home's controls attached to the glass dock: source chips + filter button with badge. Compact only the
+ * active source stays, the others shrink away, [ring] (downloads progress) sits before the filter; tapping the source expands again.
+ * The filter sheet holds region (2B) and the cards/rows layout.
  */
 @Composable
-fun HomeDockControls() {
+fun HomeDockControls(
+    dock: DockScrollState,
+    ring: @Composable () -> Unit,
+) {
     val c = LocalAppContainer.current
     val vm = tabViewModel { HomeViewModel(c) }
     val tab by vm.selected.collectAsState()
     val region by vm.region.collectAsState()
     val javTag by vm.javTag.collectAsState()
-    val collapsed by vm.collapsed.collectAsState()
+    val collapsed = dock.compact
     var sheet by remember { mutableStateOf(false) }
     val cs = MaterialTheme.colorScheme
     Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -289,12 +276,13 @@ fun HomeDockControls() {
                     .heightIn(min = 48.dp)
                     .clip(DockItemShape)
                     .background(if (on) cs.secondaryContainer else cs.secondaryContainer.copy(alpha = 0f))
-                    .selectable(on, role = Role.Tab) { if (collapsed) vm.collapsed.value = false else vm.select(t) },
+                    .selectable(on, role = Role.Tab) { if (collapsed) dock.compact = false else vm.select(t) },
                 contentAlignment = Alignment.Center,
             ) {
                 Text(stringResource(t.label), style = MaterialTheme.typography.labelLarge, color = if (on) cs.onSecondaryContainer else cs.onSurface, maxLines = 1, softWrap = false, overflow = TextOverflow.Clip)
             }
         }
+        ring()
         FilterButton(if (javTag != null && region != Region.All) 1 else 0, { sheet = true })
     }
     if (sheet) {

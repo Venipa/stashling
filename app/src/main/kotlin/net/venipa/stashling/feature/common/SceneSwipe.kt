@@ -234,6 +234,12 @@ class SceneSwipeController(private val c: AppContainer, private val scope: Corou
 
     fun invalidate(sceneId: String) = states.update { it - sceneId }
 
+    /** After an add / search / grab: drop the cached state and reload the tile badges (Whisparr library index). */
+    suspend fun changed(sceneId: String) {
+        invalidate(sceneId)
+        c.refreshWhisparrIndex()
+    }
+
     fun add(sceneId: String, tagIds: List<String>) {
         val repo = c.whisparr.value ?: return
         scope.launch {
@@ -243,7 +249,7 @@ class SceneSwipeController(private val c: AppContainer, private val scope: Corou
                     val scene = if (now is PanelState.Missing) now.scene else (now as PanelState.Failed).scene
                     val s = repo.search(scene.id)
                     messages.emit(if (s is PanelState.Error) SwipeMessage(R.string.library_whisparr_error, s.message) else SwipeMessage(R.string.swipe_searching))
-                    invalidate(sceneId)
+                    changed(sceneId)
                     return@launch
                 }
 
@@ -266,7 +272,7 @@ class SceneSwipeController(private val c: AppContainer, private val scope: Corou
                     else -> SwipeMessage(R.string.library_already_whisparr)
                 },
             )
-            invalidate(sceneId)
+            changed(sceneId)
         }
     }
 

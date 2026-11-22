@@ -19,6 +19,9 @@ val LocalNavigator = staticCompositionLocalOf<Navigator> { error("Navigator not 
 /** Bottom space the floating dock takes on a tab root (0 on pushed routes); add it to list content padding. */
 val LocalDockInset = compositionLocalOf { 0.dp }
 
+/** Top space the context pill takes on wide screens (0 on phones); add it below the status bar. */
+val LocalDockTop = compositionLocalOf { 0.dp }
+
 fun PaddingValues.withDock(dock: androidx.compose.ui.unit.Dp) = PaddingValues(
     start = 0.dp,
     top = calculateTopPadding(),

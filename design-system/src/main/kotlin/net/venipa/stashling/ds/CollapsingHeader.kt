@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.windowInsetsTopHeight
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
@@ -33,9 +32,6 @@ class CollapsingHeaderState internal constructor() {
     internal var height by mutableFloatStateOf(0f)
     internal var offset by mutableFloatStateOf(0f)
 
-    /** Current slide in px (0 = expanded, -height = collapsed); read it in a layout/draw phase to follow the header edge. */
-    val offsetPx: Float get() = offset
-
     val connection =
         object : NestedScrollConnection {
             override fun onPreScroll(
@@ -46,19 +42,6 @@ class CollapsingHeaderState internal constructor() {
                 val used = next - offset
                 offset = next
                 return Offset(0f, used)
-            }
-        }
-
-    /** For [FloatingHeader]: moves by exactly what the list scrolled and takes nothing, so header and content travel together. */
-    val follow =
-        object : NestedScrollConnection {
-            override fun onPostScroll(
-                consumed: Offset,
-                available: Offset,
-                source: NestedScrollSource,
-            ): Offset {
-                offset = (offset + consumed.y).coerceIn(-height, 0f)
-                return Offset.Zero
             }
         }
 }
@@ -80,23 +63,4 @@ fun CollapsingHeader(
 ) = Box {
     Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.surface))
     Column(Modifier.collapsingHeader(state), content = content)
-}
-
-/**
- * A transparent header over the content (under the status-bar edge band). [collapsible] slides up under the status bar
- * and fades on scroll down, [pinned] follows it and always stays (never fully hidden). Put [CollapsingHeaderState.follow] on the
- * scrolling parent; give the list a top padding of this header's measured height.
- */
-@Composable
-fun FloatingHeader(
-    state: CollapsingHeaderState,
-    modifier: Modifier = Modifier,
-    collapsible: @Composable ColumnScope.() -> Unit,
-    pinned: @Composable ColumnScope.() -> Unit,
-) = Column(modifier.statusBarsPadding().graphicsLayer { translationY = state.offset }) {
-    Column(
-        Modifier.onSizeChanged { state.height = it.height.toFloat() }.graphicsLayer { alpha = if (state.height > 0f) 1f + state.offset / state.height else 1f },
-        content = collapsible,
-    )
-    pinned()
 }

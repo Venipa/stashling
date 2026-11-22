@@ -63,7 +63,7 @@ class WhisparrRepository(
     suspend fun libraryIndex(): Map<String, LibraryBadge> = run {
         val queued = api.queue().mapNotNullTo(HashSet()) { it.movieId }
         api.movies().associate { m ->
-            m.foreignId to when {
+            (m.stashId ?: m.foreignId) to when {
                 m.id in queued -> LibraryBadge.DOWNLOADING
                 m.hasFile == true -> LibraryBadge.DOWNLOADED
                 else -> LibraryBadge.IN_LIBRARY

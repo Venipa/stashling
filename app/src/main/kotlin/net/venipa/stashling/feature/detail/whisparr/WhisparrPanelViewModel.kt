@@ -205,6 +205,7 @@ class WhisparrPanelViewModel(
                 repo.grab(release, sheet.movieId)
                 _releases.value = null
                 refresh()
+                container.sceneActions.changed(stashId)
             } catch (e: WhisparrError.Http) {
                 // 404 = Whisparr's release cache expired ("try searching again"): search again for the user.
                 if (e.status == 404) loadReleases(sheet.movieId, expired = true) else _releases.update { it?.copy(grabbing = null, error = e.message) }
@@ -238,6 +239,7 @@ class WhisparrPanelViewModel(
             } finally {
                 _busy.value = false
             }
+            container.sceneActions.changed(stashId)
         }
     }
 

@@ -13,10 +13,15 @@ import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
@@ -39,7 +44,6 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
-import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -50,11 +54,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
-import androidx.compose.ui.layout.layout
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -75,8 +75,9 @@ import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.AlphabetRail
 import net.venipa.stashling.ds.AlphabetRailWidth
 import net.venipa.stashling.ds.AppBottomSheet
+import net.venipa.stashling.ds.DockItemShape
+import net.venipa.stashling.ds.DockScrollState
 import net.venipa.stashling.ds.EmptyState
-import net.venipa.stashling.ds.FloatingHeader
 import net.venipa.stashling.ds.INDEX_LETTERS
 import net.venipa.stashling.ds.LoadingPill
 import net.venipa.stashling.ds.RefreshBox
@@ -90,7 +91,6 @@ import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.fieldColors
 import net.venipa.stashling.ds.indexLetter
 import net.venipa.stashling.ds.letterPositions
-import net.venipa.stashling.ds.rememberCollapsingHeader
 import net.venipa.stashling.ds.stableFieldHeight
 import net.venipa.stashling.feature.common.BrowseIcons
 import net.venipa.stashling.feature.common.ErrorState
@@ -105,14 +105,16 @@ import net.venipa.stashling.feature.common.Region
 import net.venipa.stashling.feature.common.SceneRowSkeleton
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.collectVisible
+import net.venipa.stashling.feature.common.containerTransform
 import net.venipa.stashling.feature.common.groupShape
 import net.venipa.stashling.feature.common.listPadding
+import net.venipa.stashling.feature.common.performerTransformKey
 import net.venipa.stashling.feature.common.rememberPerformerMenu
 import net.venipa.stashling.feature.common.rememberSceneListMode
 import net.venipa.stashling.feature.common.seekLetter
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.nav.LocalDockInset
-import kotlin.math.roundToInt
+import net.venipa.stashling.nav.LocalDockTop
 
 private enum class Sheet { Filters, Tags, Studio, Performer, Date }
 
@@ -144,10 +146,7 @@ private fun NameSort.res() = when (this) {
     NameSort.UPDATED_AT -> R.string.browse_sort_updated
 }
 
-/**
- * Browse: segmented kinds, then the search pill + filter button (one full filter sheet). The kinds slide away on
- * scroll down, the search row always stays (2C). Focusing the pill swaps the grid for grouped suggestions + recents (4C).
- */
+/** Browse: pure content; the kinds, search pill, suggestions and filter live on the dock ([BrowseDockControls]). */
 @Composable
 fun BrowseScreen(
     onOpenScene: (String) -> Unit,
@@ -160,68 +159,92 @@ fun BrowseScreen(
     val kind by vm.kind.collectAsState()
     val f by vm.filters.collectAsState()
     val mode by rememberSceneListMode()
+    val padding = listPadding(PaddingValues(top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + LocalDockTop.current), LocalDockInset.current)
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
+        key(kind) { Results(vm, kind, f, mode, padding, onOpenScene, onOpenPerformer, onOpenStudio, onOpenTag) }
+    }
+}
+
+/**
+ * Browse's dock row: segmented kinds, then the search pill + filter button (one full filter sheet). Focusing the pill
+ * opens grouped suggestions + recents upward on the same glass; the dock rides above the keyboard. Compact (4C): the active kind,
+ * [ring] and the filter; tapping the kind expands again.
+ */
+@Composable
+fun BrowseDockControls(
+    dock: DockScrollState,
+    ring: @Composable () -> Unit,
+    onOpenPerformer: (String) -> Unit,
+    onOpenStudio: (String) -> Unit,
+    onOpenTag: (String) -> Unit,
+) {
+    val c = LocalAppContainer.current
+    val vm = tabViewModel { BrowseViewModel(c.stash, c.settings) }
+    val kind by vm.kind.collectAsState()
+    val f by vm.filters.collectAsState()
     var text by rememberSaveable { mutableStateOf(vm.query.value) }
     var sheet by remember { mutableStateOf<Sheet?>(null) }
     var searching by remember { mutableStateOf(false) }
     val focus = LocalFocusManager.current
     BackHandler(searching) { focus.clearFocus() }
-
-    val header = rememberCollapsingHeader()
-    var headerPx by remember { mutableIntStateOf(0) }
-    val padding = listPadding(PaddingValues(top = with(LocalDensity.current) { headerPx.toDp() }), LocalDockInset.current)
-    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background).nestedScroll(header.follow)) {
+    val openFilters = {
+        if (kind == BrowseKind.Tags) vm.loadCategories()
+        sheet = Sheet.Filters
+    }
+    val icons = listOf(StashlingIcons.Scenes, StashlingIcons.Person, StashlingIcons.Studio, StashlingIcons.Tag)
+    if (dock.compact && !searching) {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                Modifier.weight(1f).heightIn(min = 48.dp).clip(DockItemShape).background(MaterialTheme.colorScheme.secondaryContainer).clickable { dock.compact = false }.padding(horizontal = Space.L),
+                horizontalArrangement = Arrangement.spacedBy(Space.S, Alignment.CenterHorizontally),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Icon(icons[kind.ordinal], null, Modifier.size(20.dp), tint = MaterialTheme.colorScheme.onSecondaryContainer)
+                Text(text.ifBlank { stringResource(kind.label) }, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.onSecondaryContainer, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            ring()
+            FilterButton(f.activeCount(kind), openFilters)
+        }
+    } else {
         if (searching) {
-            SuggestionsPanel(vm, text.isBlank(), padding, onRecent = {
+            SuggestionsPanel(vm, text.isBlank(), Modifier.fillMaxWidth().heightIn(max = 280.dp), onRecent = {
                 text = it
                 vm.query.value = it
                 vm.addRecent(it)
                 focus.clearFocus()
             }, onPerformer = onOpenPerformer, onStudio = onOpenStudio, onTag = onOpenTag)
         } else {
-            key(kind) { Results(vm, kind, f, mode, padding, { headerPx + header.offsetPx }, onOpenScene, onOpenPerformer, onOpenStudio, onOpenTag) }
+            StashSegmented(BrowseKind.entries.map { stringResource(it.label) }, kind.ordinal, { vm.kind.value = BrowseKind.entries[it] }, icons = icons)
         }
-        FloatingHeader(
-            header,
-            Modifier.onSizeChanged { headerPx = it.height },
-            collapsible = {
-                StashSegmented(BrowseKind.entries.map { stringResource(it.label) }, kind.ordinal, { vm.kind.value = BrowseKind.entries[it] }, icons = listOf(StashlingIcons.Scenes, StashlingIcons.Person, StashlingIcons.Studio, StashlingIcons.Tag), modifier = Modifier.padding(horizontal = Space.L).padding(top = Space.S))
-            },
-            pinned = {
-                // Solid behind the always-visible row so cards never show between pill and button; the kinds above fade under the edge band.
-                Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = Space.L, vertical = Space.S), horizontalArrangement = Arrangement.spacedBy(Space.S), verticalAlignment = Alignment.CenterVertically) {
-                    TextField(
-                        text,
-                        {
-                            text = it
-                            vm.query.value = it
-                        },
-                        Modifier.weight(1f).stableFieldHeight().onFocusChanged { searching = it.isFocused },
-                        singleLine = true,
-                        shape = CircleShape,
-                        colors = fieldColors(),
-                        placeholder = { Text(stringResource(R.string.browse_search_hint)) },
-                        leadingIcon = { Icon(StashlingIcons.Search, null) },
-                        trailingIcon = {
-                            if (text.isNotEmpty()) {
-                                IconButton({
-                                    text = ""
-                                    vm.query.value = ""
-                                }) { Icon(StashlingIcons.Close, stringResource(R.string.browse_clear)) }
-                            }
-                        },
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = {
-                            vm.addRecent(text)
-                            focus.clearFocus()
-                        }),
-                    )
-                    FilterButton(f.activeCount(kind), {
-                        if (kind == BrowseKind.Tags) vm.loadCategories()
-                        sheet = Sheet.Filters
-                    })
-                }
-            },
-        )
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+            TextField(
+                text,
+                {
+                    text = it
+                    vm.query.value = it
+                },
+                Modifier.weight(1f).stableFieldHeight().onFocusChanged { searching = it.isFocused },
+                singleLine = true,
+                shape = CircleShape,
+                colors = fieldColors(),
+                placeholder = { Text(stringResource(R.string.browse_search_hint)) },
+                leadingIcon = { Icon(StashlingIcons.Search, null) },
+                trailingIcon = {
+                    if (text.isNotEmpty()) {
+                        IconButton({
+                            text = ""
+                            vm.query.value = ""
+                        }) { Icon(StashlingIcons.Close, stringResource(R.string.browse_clear)) }
+                    }
+                },
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                keyboardActions = KeyboardActions(onSearch = {
+                    vm.addRecent(text)
+                    focus.clearFocus()
+                }),
+            )
+            FilterButton(f.activeCount(kind), openFilters)
+        }
     }
 
     val back = { sheet = Sheet.Filters }
@@ -292,7 +315,6 @@ private fun Results(
     f: Filters,
     mode: net.venipa.stashling.core.data.ListMode,
     padding: PaddingValues,
-    headerBottom: () -> Float,
     onOpenScene: (String) -> Unit,
     onOpenPerformer: (String) -> Unit,
     onOpenStudio: (String) -> Unit,
@@ -317,7 +339,7 @@ private fun Results(
                 PagedGrid(st, { it.id }, GridCells.Adaptive(150.dp), padding, vm::loadMore, vm::retry, empty, gridState = grid, onRefresh = vm::refresh) { _, p ->
                     val image = p.images.firstOrNull() ?: p.thumbnail
                     val menu = rememberPerformerMenu(PerformerRef(p.id, p.name, p.disambiguation, null, image), RoundedCornerShape(16.dp))
-                    PosterTile(p.name, stringResource(R.string.browse_scenes_count, p.sceneCount), image?.sized(300), 2f / 3f, { onOpenPerformer(p.id) }, menu.modifier, onLongClick = menu.open)
+                    PosterTile(p.name, stringResource(R.string.browse_scenes_count, p.sceneCount), image?.sized(300), 2f / 3f, { onOpenPerformer(p.id) }, menu.modifier.containerTransform(performerTransformKey(p.id), RoundedCornerShape(16.dp)), onLongClick = menu.open)
                 }
             }
         }
@@ -333,7 +355,7 @@ private fun Results(
         }
 
         BrowseKind.Tags -> if (f.tagsAz) {
-            AzTags(vm, padding, headerBottom, onOpenTag)
+            AzTags(vm, padding, onOpenTag)
         } else {
             // 6A: grouped list under category headers (loaded pages re-sorted by category, name order kept inside).
             val st by vm.tags.state.collectAsState()
@@ -417,7 +439,6 @@ internal fun <T> NameRail(
 private fun AzTags(
     vm: BrowseViewModel,
     padding: PaddingValues,
-    headerBottom: () -> Float,
     onOpenTag: (String) -> Unit,
 ) {
     val st by vm.allTags.collectAsState()
@@ -428,15 +449,9 @@ private fun AzTags(
         groups.mapValues { (_, g) -> i.also { i += 1 + g.size } }
     }
     val list = vm.azList
-    // Sticky headers stick at the list's own top, not below its content padding: the list starts at the header's live bottom edge
-    // (read in the layout phase, so the collapse does not recompose) instead of scrolling under it.
-    val top = Modifier.layout { m, c ->
-        val y = headerBottom().roundToInt().coerceIn(0, c.maxHeight)
-        val p = m.measure(c.copy(minHeight = (c.minHeight - y).coerceAtLeast(0), maxHeight = c.maxHeight - y))
-        layout(p.width, c.maxHeight) { p.place(0, y) }
-    }
+    // Sticky headers stick at the list's own top, not below its content padding: the list starts below the status bar.
     Box(Modifier.fillMaxSize()) {
-        RefreshBox(st.refreshing, vm::refresh, Modifier.fillMaxSize().then(top)) {
+        RefreshBox(st.refreshing, vm::refresh, Modifier.fillMaxSize().padding(top = padding.calculateTopPadding())) {
             LazyColumn(Modifier.fillMaxSize(), list, PaddingValues(start = Space.L, top = Space.S, end = AlphabetRailWidth + Space.Xs, bottom = padding.calculateBottomPadding()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                 val error = st.error
                 when {
@@ -478,7 +493,7 @@ private fun TagRow(
 private fun SuggestionsPanel(
     vm: BrowseViewModel,
     blank: Boolean,
-    padding: PaddingValues,
+    modifier: Modifier,
     onRecent: (String) -> Unit,
     onPerformer: (String) -> Unit,
     onStudio: (String) -> Unit,
@@ -486,7 +501,7 @@ private fun SuggestionsPanel(
 ) {
     val recents by vm.recents.collectAsState()
     val s by vm.suggestions.collectAsState()
-    LazyColumn(Modifier.fillMaxSize(), contentPadding = padding, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    LazyColumn(modifier, verticalArrangement = Arrangement.spacedBy(2.dp)) {
         if (blank) {
             if (recents.isNotEmpty()) item { SectionHeader(stringResource(R.string.browse_recent)) }
             itemsIndexed(recents, key = { _, r -> "r:$r" }) { i, r ->

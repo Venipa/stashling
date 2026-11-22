@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
@@ -93,7 +94,6 @@ import net.venipa.stashling.feature.common.LoadMoreEffect
 import net.venipa.stashling.feature.common.MediaRow
 import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.PosterTile
-import net.venipa.stashling.feature.common.StashTopBar
 import net.venipa.stashling.feature.common.dragSelect
 import net.venipa.stashling.feature.common.fullSpan
 import net.venipa.stashling.feature.common.groupShape
@@ -105,6 +105,7 @@ import net.venipa.stashling.feature.common.stashWebUrl
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.nav.BrowseRoute
 import net.venipa.stashling.nav.LocalDockInset
+import net.venipa.stashling.nav.LocalDockTop
 import net.venipa.stashling.nav.LocalNavigator
 
 /** A snackbar line: a string id with an optional argument. */
@@ -186,6 +187,7 @@ class SavedViewModel(private val c: AppContainer) : ViewModel() {
                     else -> LibraryMessage(R.string.library_already_whisparr)
                 }
             messages.emit(msg)
+            c.sceneActions.changed(stashId)
         }
     }
 }
@@ -201,7 +203,6 @@ fun SavedScreen(
     onOpenPerformer: (String) -> Unit,
     onOpenStudio: (String) -> Unit,
     onOpenTag: (String) -> Unit,
-    librarySwitch: @Composable () -> Unit,
 ) {
     val c = LocalAppContainer.current
     val vm = tabViewModel { SavedViewModel(c) }
@@ -264,11 +265,13 @@ fun SavedScreen(
                         onRemove = { remove(list.filter { it.stashId in selected }) },
                     )
                 } else {
-                    StashTopBar(stringResource(R.string.nav_library), actions = { if (kind == BookmarkKind.SCENE) ListModeToggle(mode) })
-                }
-                librarySwitch()
-                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Space.L, vertical = Space.Xs), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                    BookmarkKind.entries.forEach { k -> StashFilterChip(k == kind, { vm.selectKind(k) }, { Text(stringResource(k.labelRes())) }) }
+                    // No title bar (the dock names the tab, Saved | Downloads lives on it); kinds + layout toggle only.
+                    Row(Modifier.statusBarsPadding().padding(top = LocalDockTop.current, end = Space.S), verticalAlignment = Alignment.CenterVertically) {
+                        Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()).padding(horizontal = Space.L, vertical = Space.Xs), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
+                            BookmarkKind.entries.forEach { k -> StashFilterChip(k == kind, { vm.selectKind(k) }, { Text(stringResource(k.labelRes())) }) }
+                        }
+                        if (kind == BookmarkKind.SCENE) ListModeToggle(mode)
+                    }
                 }
             }
         },
@@ -384,6 +387,9 @@ private fun SavedItem(
     val scale by animateFloatAsState(if (selected) 0.94f else 1f, label = "selected")
     val shape = if (rows) groupShape(index, count) else RoundedCornerShape(16.dp)
     val selectLabel = stringResource(R.string.library_select)
+    val badges by LocalAppContainer.current.whisparrIndex.collectAsState()
+    // The select mark takes the card's top-end corner while selecting.
+    val badge = if (b.kind == BookmarkKind.SCENE && !selecting) badges[b.stashId] else null
     Box(
         Modifier
             .graphicsLayer {
@@ -402,10 +408,10 @@ private fun SavedItem(
             },
     ) {
         if (rows) {
-            MediaRow(b.title, b.subtitle, b.imageUrl, index, count, onClick)
+            MediaRow(b.title, b.subtitle, b.imageUrl, index, count, onClick, badge = badge)
         } else {
             // Scenes and studios are landscape, performers 2:3, tags text only (as before). The stored url is already sized.
-            PosterTile(b.title, b.subtitle, b.imageUrl, if (b.kind == BookmarkKind.PERFORMER || b.kind == BookmarkKind.TAG) 2f / 3f else 16f / 9f, onClick, fit = b.kind == BookmarkKind.STUDIO)
+            PosterTile(b.title, b.subtitle, b.imageUrl, if (b.kind == BookmarkKind.PERFORMER || b.kind == BookmarkKind.TAG) 2f / 3f else 16f / 9f, onClick, fit = b.kind == BookmarkKind.STUDIO, badge = badge)
         }
         if (selecting) SelectMark(selected, Modifier.align(if (rows) Alignment.TopStart else Alignment.TopEnd).padding(Space.M))
     }
