@@ -7,6 +7,7 @@ import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import kotlinx.coroutines.launch
 import net.venipa.stashling.LocalAppContainer
@@ -33,12 +34,16 @@ fun ListModeToggle(mode: ListMode) {
 
 /** Cards | Rows inside a filter sheet (Home, Browse scenes). */
 @Composable
-fun ListModeSegmented(mode: ListMode) {
+fun ListModeSegmented(
+    mode: ListMode,
+    modifier: Modifier = Modifier,
+) {
     val store = LocalAppContainer.current.settings
     val scope = rememberCoroutineScope()
     StashSegmented(
         listOf(stringResource(R.string.browse_layout_cards), stringResource(R.string.browse_layout_rows)),
         mode.ordinal,
         { i -> scope.launch { store.update { it.copy(sceneListMode = ListMode.entries[i]) } } },
+        modifier,
     )
 }

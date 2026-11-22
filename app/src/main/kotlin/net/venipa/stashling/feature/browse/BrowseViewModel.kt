@@ -21,11 +21,12 @@ import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.venipa.stashling.R
-import net.venipa.stashling.core.data.Settings
+import net.venipa.stashling.core.data.SettingsStore
 import net.venipa.stashling.core.stash.CachingStashDbApi
 import net.venipa.stashling.core.stash.NameSort
 import net.venipa.stashling.core.stash.Performer
 import net.venipa.stashling.core.stash.PerformerFilter
+import net.venipa.stashling.core.stash.PerformerSort
 import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.SceneFilter
 import net.venipa.stashling.core.stash.SortDirection
@@ -39,7 +40,6 @@ import net.venipa.stashling.feature.common.PagedState
 import net.venipa.stashling.feature.common.Region
 import net.venipa.stashling.feature.common.apiValue
 import net.venipa.stashling.feature.common.javTagId
-import net.venipa.stashling.feature.common.matches
 import net.venipa.stashling.feature.common.withRegion
 
 private const val SUGGEST = 4
@@ -51,9 +51,12 @@ enum class BrowseKind(val label: Int) {
     Tags(R.string.browse_kind_tags),
 }
 
+/** Browse lists performers A–Z by default so the letter rail shows; another sort hides the rail. */
+val BrowsePerformers = PerformerFilter(sort = PerformerSort.NAME, direction = SortDirection.ASC)
+
 data class Filters(
     val scene: SceneFilter = SceneFilter(),
-    val performer: PerformerFilter = PerformerFilter(),
+    val performer: PerformerFilter = BrowsePerformers,
     val studio: StudioFilter = StudioFilter(),
     val tag: TagFilter = TagFilter(),
     val region: Region = Region.All,
@@ -68,7 +71,7 @@ fun Filters.activeCount(kind: BrowseKind): Int = when (kind) {
         listOf(scene.sort != d.sort || scene.direction != d.direction, scene.studioIds.isNotEmpty(), scene.performerIds.isNotEmpty(), scene.tagIds.isNotEmpty(), scene.date != null, scene.favorites != null, region != Region.All)
     }
 
-    BrowseKind.Performers -> listOf(performer.sort != PerformerFilter().sort || performer.direction != PerformerFilter().direction, performer.favoritesOnly)
+    BrowseKind.Performers -> listOf(performer.sort != BrowsePerformers.sort || performer.direction != BrowsePerformers.direction, performer.favoritesOnly)
 
     BrowseKind.Studios -> listOf(studio.sort != StudioFilter().sort || studio.direction != StudioFilter().direction, studio.favoritesOnly)
 
@@ -85,8 +88,10 @@ private data class AllTags(val filter: TagFilter)
 
 class BrowseViewModel(
     private val stash: CachingStashDbApi,
-    settings: Flow<Settings>,
+    private val store: SettingsStore,
 ) : ViewModel() {
+    private val settings = store.settings
+
     /** Settings.performerGender as a StashDB GenderFilterEnum name; null = both. */
     private val gender = settings.map { it.performerGender.apiValue() }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
@@ -102,8 +107,8 @@ class BrowseViewModel(
     /** null = typing / empty query. */
     val suggestions = MutableStateFlow<Suggestions?>(null)
 
-    // shortcut: recents live in this activity-scoped VM (lost on process death); move to Settings once core has the field.
-    val recents = MutableStateFlow<List<String>>(emptyList())
+    /** Settings.recentSearches (persisted). */
+    val recents = settings.map { it.recentSearches }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
     // The first reload comes from the spec collector below.
     val scenes = PageLoader<SceneCard>(viewModelScope, { it.id }) { p -> stash.scenes(SceneFilter(), p) }
@@ -119,7 +124,7 @@ class BrowseViewModel(
                 suggestions.value = null
                 if (q.isNotEmpty()) {
                     suggestions.value = coroutineScope {
-                        val p = async { quiet { stash.searchPerformers(q, 1, SUGGEST).items.filter { it.matches(g) }.map { PickItem(it.id, it.name, it.disambiguation) } } }
+                        val p = async { quiet { stash.searchPerformers(q, 1, SUGGEST, g).items.map { PickItem(it.id, it.name, it.disambiguation, imageUrl = (it.images.firstOrNull() ?: it.thumbnail)?.sized(300)) } } }
                         val s = async { quiet { stash.studios(StudioFilter(names = q), 1, SUGGEST).items.map { PickItem(it.id, it.name, it.parent?.name) } } }
                         val t = async { quiet { stash.tags(TagFilter(names = q), 1, SUGGEST).items.map { PickItem(it.id, it.name, it.category) } } }
                         Suggestions(p.await(), s.await(), t.await())
@@ -152,8 +157,7 @@ class BrowseViewModel(
             // searchScenes (fuzzy) only when no filter is set; otherwise the title filter.
             is SceneFilter -> scenes.reload { p -> if (q.isNotEmpty() && f == SceneFilter()) stash.searchScenes(q, p) else stash.scenes(f.copy(title = q.ifEmpty { null }), p) }
 
-            // searchPerformers takes no gender: its pages are filtered here (counts/paging stay the server's).
-            is PerformerFilter -> performers.reload { p -> if (q.isNotEmpty() && f.copy(gender = null) == PerformerFilter()) stash.searchPerformers(q, p).let { pg -> pg.copy(items = pg.items.filter { it.matches(f.gender) }) } else stash.performers(f.copy(names = q.ifEmpty { null }), p) }
+            is PerformerFilter -> performers.reload { p -> if (q.isNotEmpty() && f.copy(gender = null) == BrowsePerformers) stash.searchPerformers(q, p, gender = f.gender) else stash.performers(f.copy(names = q.ifEmpty { null }), p) }
 
             is StudioFilter -> studios.reload { p -> stash.studios(f.copy(names = q.ifEmpty { null }), p) }
 
@@ -224,7 +228,7 @@ class BrowseViewModel(
     fun reset(kind: BrowseKind) = filters.update {
         when (kind) {
             BrowseKind.Scenes -> it.copy(scene = SceneFilter(), region = Region.All)
-            BrowseKind.Performers -> it.copy(performer = PerformerFilter())
+            BrowseKind.Performers -> it.copy(performer = BrowsePerformers)
             BrowseKind.Studios -> it.copy(studio = StudioFilter())
             BrowseKind.Tags -> it.copy(tag = TagFilter())
         }
@@ -233,7 +237,7 @@ class BrowseViewModel(
     /** Last 10, newest first, case-insensitive unique. */
     fun addRecent(q: String) {
         val t = q.trim()
-        if (t.isNotEmpty()) recents.update { (listOf(t) + it.filterNot { r -> r.equals(t, true) }).take(10) }
+        if (t.isNotEmpty()) viewModelScope.launch { store.update { s -> s.copy(recentSearches = (listOf(t) + s.recentSearches.filterNot { it.equals(t, true) }).take(10)) } }
     }
 
     // A failed suggestion group is just empty; the grid shows the real error.
@@ -265,5 +269,5 @@ class BrowseViewModel(
 
     suspend fun searchStudios(q: String) = stash.studios(StudioFilter(names = q.ifEmpty { null }), 1).items.map { PickItem(it.id, it.name, it.parent?.name) }
 
-    suspend fun searchPerformers(q: String) = stash.performers(PerformerFilter(names = q.ifEmpty { null }, gender = gender.value), 1).items.map { PickItem(it.id, it.name, it.disambiguation) }
+    suspend fun searchPerformers(q: String) = stash.performers(PerformerFilter(names = q.ifEmpty { null }, gender = gender.value), 1).items.map { PickItem(it.id, it.name, it.disambiguation, imageUrl = (it.images.firstOrNull() ?: it.thumbnail)?.sized(300)) }
 }

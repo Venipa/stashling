@@ -22,7 +22,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
@@ -39,14 +41,19 @@ import net.venipa.stashling.AppContainer
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.core.data.BookmarkKind
+import net.venipa.stashling.core.data.HiddenKind
 import net.venipa.stashling.core.stash.Performer
+import net.venipa.stashling.core.stash.PerformerRef
 import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.SceneFilter
 import net.venipa.stashling.core.stash.SceneSort
+import net.venipa.stashling.ds.ActionSheet
 import net.venipa.stashling.ds.AppSnackbar
 import net.venipa.stashling.ds.GroupRow
 import net.venipa.stashling.ds.SectionHeader
+import net.venipa.stashling.ds.SheetAction
 import net.venipa.stashling.ds.Space
+import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
 import net.venipa.stashling.ds.concentricShape
 import net.venipa.stashling.feature.common.BrowseIcons
@@ -58,11 +65,13 @@ import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.StashTopBar
+import net.venipa.stashling.feature.common.collectVisible
 import net.venipa.stashling.feature.common.fullSpan
 import net.venipa.stashling.feature.common.listPadding
 import net.venipa.stashling.feature.common.loadOf
 import net.venipa.stashling.feature.common.openLink
 import net.venipa.stashling.feature.common.rememberSceneListMode
+import net.venipa.stashling.feature.common.stashWebUrl
 
 class PerformerDetailViewModel(startId: String, private val c: AppContainer) : ViewModel() {
     // The id after following merged_into_id.
@@ -137,20 +146,38 @@ fun PerformerDetailScreen(
     val bookmarked by vm.actions.bookmarked.collectAsState()
     val favorite by vm.actions.favorite.collectAsState()
     val studioId by vm.studio.collectAsState()
-    val scenes by vm.scenes.state.collectAsState()
+    val scenes = vm.scenes.collectVisible(keepPerformer = (load as? Load.Data)?.value?.id ?: id)
     val mode by rememberSceneListMode()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current
     val msg = vm.actions.messages
     LaunchedEffect(msg) { msg.collect { snackbar.showSnackbar(context.getString(it)) } }
 
+    var menu by remember { mutableStateOf(false) }
+    val hidden by c.hiddenIds.collectAsState()
     LoadGate(load, onBack, vm::load) { p ->
+        if (menu) {
+            val isHidden = p.id in hidden.performers
+            ActionSheet(
+                p.name,
+                listOf(
+                    SheetAction(stringResource(R.string.library_open_stashdb), StashlingIcons.OpenExternal) { c.secrets.stash.value?.let { openLink(context, stashWebUrl(it.baseUrl, BookmarkKind.PERFORMER, p.id)) } },
+                    // The page stays; lists drop the performer's scenes (snackbar with Undo from SceneActionsHost).
+                    if (isHidden) {
+                        SheetAction(stringResource(R.string.swipe_unhide_performer), StashlingIcons.Visibility) { c.sceneActions.unhide(HiddenKind.PERFORMER, p.id) }
+                    } else {
+                        SheetAction(stringResource(R.string.swipe_hide_performer), BrowseIcons.PersonRemove) { c.sceneActions.hidePerformers(listOf(PerformerRef(p.id, p.name, p.disambiguation, null, p.images.firstOrNull() ?: p.thumbnail))) }
+                    },
+                ),
+            ) { menu = false }
+        }
         Scaffold(
             topBar = {
                 StashTopBar(p.name, onBack, actions = {
                     ListModeToggle(mode)
                     IconButton({ vm.toggleFavorite(p) }) { Icon(if (favorite) BrowseIcons.FavoriteFilled else BrowseIcons.Favorite, stringResource(if (favorite) R.string.detail_unfavorite else R.string.detail_favorite)) }
                     IconButton({ vm.toggleBookmark(p) }) { Icon(if (bookmarked) BrowseIcons.BookmarkFilled else BrowseIcons.Bookmark, stringResource(if (bookmarked) R.string.detail_unbookmark else R.string.detail_bookmark)) }
+                    IconButton({ menu = true }) { Icon(StashlingIcons.More, stringResource(R.string.library_more)) }
                 })
             },
             snackbarHost = { SnackbarHost(snackbar) { AppSnackbar(it) } },

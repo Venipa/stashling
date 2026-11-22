@@ -40,6 +40,7 @@ import net.venipa.stashling.feature.common.LoadGate
 import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashTopBar
+import net.venipa.stashling.feature.common.collectVisible
 import net.venipa.stashling.feature.common.fullSpan
 import net.venipa.stashling.feature.common.listPadding
 import net.venipa.stashling.feature.common.loadOf
@@ -82,7 +83,7 @@ fun TagDetailScreen(
     val vm = viewModel(key = "tag-$id") { TagDetailViewModel(id, c) }
     val load by vm.state.collectAsState()
     val bookmarked by vm.actions.bookmarked.collectAsState()
-    val scenes by vm.scenes.state.collectAsState()
+    val scenes = vm.scenes.collectVisible()
     val mode by rememberSceneListMode()
     LoadGate(load, onBack, vm::load) { t ->
         Scaffold(

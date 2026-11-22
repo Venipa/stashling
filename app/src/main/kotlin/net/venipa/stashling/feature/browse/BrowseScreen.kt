@@ -19,10 +19,12 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
@@ -35,13 +37,16 @@ import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -56,10 +61,13 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.filter
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.core.stash.Favorites
 import net.venipa.stashling.core.stash.NameSort
+import net.venipa.stashling.core.stash.PerformerRef
 import net.venipa.stashling.core.stash.PerformerSort
 import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.SortDirection
@@ -89,15 +97,19 @@ import net.venipa.stashling.feature.common.ErrorState
 import net.venipa.stashling.feature.common.FilterButton
 import net.venipa.stashling.feature.common.ListModeSegmented
 import net.venipa.stashling.feature.common.MediaRow
+import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.PagedGrid
 import net.venipa.stashling.feature.common.PagedState
 import net.venipa.stashling.feature.common.PosterTile
 import net.venipa.stashling.feature.common.Region
 import net.venipa.stashling.feature.common.SceneRowSkeleton
 import net.venipa.stashling.feature.common.ScenesGrid
+import net.venipa.stashling.feature.common.collectVisible
 import net.venipa.stashling.feature.common.groupShape
 import net.venipa.stashling.feature.common.listPadding
+import net.venipa.stashling.feature.common.rememberPerformerMenu
 import net.venipa.stashling.feature.common.rememberSceneListMode
+import net.venipa.stashling.feature.common.seekLetter
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.nav.LocalDockInset
 import kotlin.math.roundToInt
@@ -144,7 +156,7 @@ fun BrowseScreen(
     onOpenTag: (String) -> Unit,
 ) {
     val c = LocalAppContainer.current
-    val vm = tabViewModel { BrowseViewModel(c.stash, c.settings.settings) }
+    val vm = tabViewModel { BrowseViewModel(c.stash, c.settings) }
     val kind by vm.kind.collectAsState()
     val f by vm.filters.collectAsState()
     val mode by rememberSceneListMode()
@@ -290,16 +302,22 @@ private fun Results(
     val empty = stringResource(R.string.browse_empty)
     when (kind) {
         BrowseKind.Scenes -> {
-            val st by vm.scenes.state.collectAsState()
+            val st = vm.scenes.collectVisible()
             ScenesGrid(st, mode, padding, vm::loadMore, vm::retry, onOpenScene, gridState = grid, onRefresh = vm::refresh)
         }
 
         // 6A: 2:3 grid, name + scene count.
         BrowseKind.Performers -> {
             val st by vm.performers.state.collectAsState()
-            NameRail(st, f.performer.sort == PerformerSort.NAME, padding, vm::loadMore, { grid.scrollToItem(it) }, { it.name }) { padding ->
+            val q by vm.query.collectAsState()
+            // Fuzzy search (query, default filters) is relevance order: no rail there.
+            val fuzzy = q.isNotBlank() && f.performer.copy(gender = null) == BrowsePerformers
+            val byName = f.performer.sort == PerformerSort.NAME && f.performer.direction == SortDirection.ASC && !fuzzy
+            NameRail(vm.performers, st, byName, padding, grid, { it.name }, { indexLetter(it.name, it.aliases) }) { padding ->
                 PagedGrid(st, { it.id }, GridCells.Adaptive(150.dp), padding, vm::loadMore, vm::retry, empty, gridState = grid, onRefresh = vm::refresh) { _, p ->
-                    PosterTile(p.name, stringResource(R.string.browse_scenes_count, p.sceneCount), (p.images.firstOrNull() ?: p.thumbnail)?.sized(300), 2f / 3f, { onOpenPerformer(p.id) })
+                    val image = p.images.firstOrNull() ?: p.thumbnail
+                    val menu = rememberPerformerMenu(PerformerRef(p.id, p.name, p.disambiguation, null, image), RoundedCornerShape(16.dp))
+                    PosterTile(p.name, stringResource(R.string.browse_scenes_count, p.sceneCount), image?.sized(300), 2f / 3f, { onOpenPerformer(p.id) }, menu.modifier, onLongClick = menu.open)
                 }
             }
         }
@@ -307,7 +325,7 @@ private fun Results(
         // 6B: list rows, logo (contained) + name + parent studio.
         BrowseKind.Studios -> {
             val st by vm.studios.state.collectAsState()
-            NameRail(st, f.studio.sort == NameSort.NAME, padding, vm::loadMore, { grid.scrollToItem(it) }, { it.name }) { padding ->
+            NameRail(vm.studios, st, f.studio.sort == NameSort.NAME && f.studio.direction == SortDirection.ASC, padding, grid, { it.name }, { indexLetter(it.name, it.aliases) }) { padding ->
                 PagedGrid(st, { it.id }, GridCells.Fixed(1), padding, vm::loadMore, vm::retry, empty, gridState = grid, spacing = 2.dp, onRefresh = vm::refresh, skeleton = { i, n -> SceneRowSkeleton(i, n) }) { i, s ->
                     MediaRow(s.name, s.parent?.name, s.images.firstOrNull()?.sized(300), i, st.items.size, { onOpenStudio(s.id) }, scale = ContentScale.Fit)
                 }
@@ -351,29 +369,47 @@ private fun Results(
 private fun PaddingValues.withRail() = PaddingValues(start = Space.L, top = calculateTopPadding(), end = AlphabetRailWidth + Space.Xs, bottom = calculateBottomPadding())
 
 /**
- * A name-sorted remote list with the letter rail. Totals up to 500 are loaded completely so every letter is reachable; the rail
- * shows once the whole list is loaded (shortcut: bigger name-sorted lists get no rail, jumping would need page-by-page loading).
+ * A name-ascending remote list with the letter rail (always, any size). A letter seeks server-side ([seekLetter]: binary search
+ * over cached pages, then the list restarts at that page and loads both ways). [letter] is the shown key (English alias for JAV names).
  */
 @Composable
 private fun <T> NameRail(
+    loader: PageLoader<T>,
     st: PagedState<T>,
     byName: Boolean,
     padding: PaddingValues,
-    loadMore: () -> Unit,
-    onJump: suspend (Int) -> Unit,
+    grid: LazyGridState,
     name: (T) -> String,
+    letter: (T) -> Char,
     content: @Composable (PaddingValues) -> Unit,
 ) {
-    LaunchedEffect(byName, st) { if (byName && st.total in 0..RAIL_MAX && st.hasNext && !st.loading && st.error == null) loadMore() }
-    val rail = byName && !st.hasNext && st.items.size > 1
-    val positions = remember(st.items, rail) { if (rail) letterPositions(st.items, name = name) else emptyMap() }
+    // After a jump: earlier pages load when the top comes near (prepended items keep the scroll anchored by key).
+    LaunchedEffect(grid, st.hasPrevious) {
+        if (st.hasPrevious) snapshotFlow { grid.firstVisibleItemIndex <= 4 }.filter { it }.collect { loader.loadPrevious() }
+    }
+    val items by rememberUpdatedState(st.items)
+    val current by remember(grid) { derivedStateOf { items.getOrNull(grid.firstVisibleItemIndex)?.let(letter) } }
     Box(Modifier.fillMaxSize()) {
-        content(if (rail) padding.withRail() else padding)
-        if (rail) AlphabetRail(positions, onJump, Modifier.align(Alignment.TopEnd).padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()))
+        content(if (byName) padding.withRail() else padding)
+        if (byName) {
+            AlphabetRail(
+                emptyMap(),
+                {},
+                Modifier.align(Alignment.TopEnd).padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
+                seek = { l ->
+                    try {
+                        grid.scrollToItem(loader.seekLetter(l, name))
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (_: Exception) {
+                        // A failed page keeps the list as it was.
+                    }
+                },
+                current = current,
+            )
+        }
     }
 }
-
-private const val RAIL_MAX = 500
 
 /** Tags A–Z: every tag, sticky letter headers, the letter rail. */
 @OptIn(ExperimentalFoundationApi::class)
@@ -475,7 +511,7 @@ private fun SuggestionsPanel(
                 ).forEach { (label, items, open) ->
                     if (items.isNotEmpty()) {
                         item(key = "h:$label") { SectionHeader(stringResource(label), Modifier.padding(top = Space.S)) }
-                        itemsIndexed(items, key = { _, it -> "$label:${it.id}" }) { i, it -> SheetRow(it.title, it.subtitle, false, groupShape(i, items.size)) { open(it.id) } }
+                        itemsIndexed(items, key = { _, it -> "$label:${it.id}" }) { i, it -> SheetRow(it.title, it.subtitle, false, groupShape(i, items.size), it.imageUrl) { open(it.id) } }
                     }
                 }
                 if (r.performers.isEmpty() && r.studios.isEmpty() && r.tags.isEmpty()) item { Text(stringResource(R.string.browse_empty), color = MaterialTheme.colorScheme.onSurfaceVariant) }

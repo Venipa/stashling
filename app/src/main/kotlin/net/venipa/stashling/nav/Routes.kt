@@ -32,4 +32,4 @@ import kotlinx.serialization.Serializable
 @Serializable data class GalleryRoute(val kind: String, val id: String, val index: Int = 0) : NavKey
 
 @Serializable
-enum class SettingsSection { Menu, Appearance, Privacy, Accounts, WhisparrDefaults, Storage, About }
+enum class SettingsSection { Menu, Appearance, Privacy, Accounts, WhisparrDefaults, Browsing, Hidden, Storage, About }

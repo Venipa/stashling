@@ -20,6 +20,9 @@ data class PagedState<T>(
     val refreshing: Boolean = false,
     /** Server-side total (Page.count); -1 until the first page. */
     val total: Int = -1,
+    /** After [PageLoader.jumpTo] past page 1: earlier pages load at the top ([PageLoader.loadPrevious]). */
+    val hasPrevious: Boolean = false,
+    val loadingPrevious: Boolean = false,
 )
 
 /** ViewModel page loader (1-based pages, 40 per page via the API default). An error stops auto-loading until [retry]. */
@@ -31,7 +34,9 @@ class PageLoader<T>(
     private val _state = MutableStateFlow(PagedState<T>())
     val state: StateFlow<PagedState<T>> = _state.asStateFlow()
     private var job: Job? = null
+    private var prevJob: Job? = null
     private var page = 0
+    private var first = 1
 
     fun ensureStarted() {
         if (!_state.value.started) reload()
@@ -40,7 +45,9 @@ class PageLoader<T>(
     fun reload(newFetch: (suspend (Int) -> Page<T>)? = null) {
         newFetch?.let { fetch = it }
         job?.cancel()
+        prevJob?.cancel()
         page = 0
+        first = 1
         _state.value = PagedState(started = true)
         loadMore()
     }
@@ -54,7 +61,7 @@ class PageLoader<T>(
             try {
                 val p = fetch(next)
                 page = next
-                _state.update { PagedState((it.items + p.items).distinctBy(key), hasNext = p.hasNext, started = true, total = p.count) }
+                _state.update { it.copy(items = (it.items + p.items).distinctBy(key), loading = false, hasNext = p.hasNext, started = true, total = p.count) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -67,16 +74,49 @@ class PageLoader<T>(
     fun refresh() {
         if (_state.value.refreshing) return
         job?.cancel()
+        prevJob?.cancel()
         _state.update { it.copy(refreshing = true, loading = false, error = null) }
         job = scope.launch {
             try {
                 val p = fetch(1)
                 page = 1
+                first = 1
                 _state.value = PagedState(p.items.distinctBy(key), hasNext = p.hasNext, started = true, total = p.count)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
                 _state.update { it.copy(refreshing = false) }
+            }
+        }
+    }
+
+    /** A page as the list would load it (cached by the API), without changing the list; for [seekLetter]. */
+    suspend fun peek(p: Int): Page<T> = fetch(p)
+
+    /** Replaces the list with page [p]; the list then loads forward ([loadMore]) and backward ([loadPrevious]) from there. */
+    suspend fun jumpTo(p: Int) {
+        job?.cancel()
+        prevJob?.cancel()
+        val pg = fetch(p)
+        page = p
+        first = p
+        _state.value = PagedState(pg.items.distinctBy(key), hasNext = pg.hasNext, started = true, total = pg.count, hasPrevious = p > 1)
+    }
+
+    fun loadPrevious() {
+        val s = _state.value
+        if (s.loadingPrevious || !s.hasPrevious || s.error != null || s.refreshing) return
+        _state.update { it.copy(loadingPrevious = true) }
+        val prev = first - 1
+        prevJob = scope.launch {
+            try {
+                val p = fetch(prev)
+                first = prev
+                _state.update { it.copy(items = (p.items + it.items).distinctBy(key), hasPrevious = prev > 1, loadingPrevious = false) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(loadingPrevious = false, error = e) }
             }
         }
     }
@@ -112,3 +152,49 @@ inline fun <reified VM : androidx.lifecycle.ViewModel> tabViewModel(noinline cre
     viewModelStoreOwner = androidx.activity.compose.LocalActivity.current as androidx.activity.ComponentActivity,
     initializer = { create() },
 )
+
+/**
+ * Server-side letter jump on a name-ascending list: binary search over the pages by the first item's [seekRank] of its raw
+ * name (~log2(pages) cached requests), then [PageLoader.jumpTo] the page holding the first item at or after [letter].
+ * Returns the item index to scroll to. Server order is by raw name, so non-Latin names (after Z) are reached from the end.
+ */
+suspend fun <T> PageLoader<T>.seekLetter(
+    letter: Char,
+    name: (T) -> String,
+): Int {
+    val target = seekRank(letter)
+    val one = peek(1)
+    val pages = if (one.perPage <= 0) 1 else (one.count + one.perPage - 1) / one.perPage
+    var lo = 1
+    var hi = pages
+    var hit = 1
+    while (lo <= hi) {
+        val mid = (lo + hi) / 2
+        val head = (if (mid == 1) one else peek(mid)).items.firstOrNull()
+        if (head != null && seekRank(name(head)) < target) {
+            hit = mid
+            lo = mid + 1
+        } else {
+            hi = mid - 1
+        }
+    }
+    jumpTo(hit)
+    val items = state.value.items
+    val i = items.indexOfFirst { seekRank(name(it)) >= target }
+    if (i >= 0 || hit >= pages) return i.coerceAtLeast(0)
+    // The letter starts on the next page.
+    jumpTo(hit + 1)
+    return 0
+}
+
+/** Order of a name in a server NAME ASC list: digits and symbols 0, A–Z 1–26 (diacritics folded), other scripts 27 (after Z). */
+fun seekRank(name: String): Int {
+    val c = java.text.Normalizer.normalize(name.trimStart().take(1), java.text.Normalizer.Form.NFD).firstOrNull()?.uppercaseChar() ?: return 0
+    return when {
+        c in 'A'..'Z' -> c - 'A' + 1
+        c.isLetter() -> 27
+        else -> 0
+    }
+}
+
+private fun seekRank(letter: Char): Int = if (letter in 'A'..'Z') letter - 'A' + 1 else 0

@@ -38,7 +38,7 @@ class CachingStashDbApi(
 
     override suspend fun performers(filter: PerformerFilter, page: Int, perPage: Int) = cached("performers|$filter|$page|$perPage") { delegate.performers(filter, page, perPage) }
 
-    override suspend fun searchPerformers(term: String, page: Int, perPage: Int) = cached("searchPerformers|$term|$page|$perPage") { delegate.searchPerformers(term, page, perPage) }
+    override suspend fun searchPerformers(term: String, page: Int, perPage: Int, gender: String?) = cached("searchPerformers|$term|$page|$perPage|$gender") { delegate.searchPerformers(term, page, perPage, gender) }
 
     override suspend fun performer(id: String) = cached("performer|$id") { delegate.performer(id) }
 

@@ -21,13 +21,22 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.LazyGridState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -38,6 +47,8 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,7 +56,6 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -53,33 +63,43 @@ import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import net.venipa.stashling.AppContainer
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
-import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.stash.CachingStashDbApi
 import net.venipa.stashling.core.stash.Favorites
 import net.venipa.stashling.core.stash.Performer
 import net.venipa.stashling.core.stash.PerformerFilter
+import net.venipa.stashling.core.stash.PerformerRef
 import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.SceneFilter
 import net.venipa.stashling.core.stash.SceneSort
+import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.AppBottomSheet
+import net.venipa.stashling.ds.AppSnackbar
 import net.venipa.stashling.ds.GlassCorner
 import net.venipa.stashling.ds.SectionHeader
+import net.venipa.stashling.ds.SkeletonText
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashSegmented
+import net.venipa.stashling.ds.concentric
 import net.venipa.stashling.ds.concentricShape
 import net.venipa.stashling.feature.browse.SheetColumn
 import net.venipa.stashling.feature.common.FilterButton
 import net.venipa.stashling.feature.common.ListModeSegmented
 import net.venipa.stashling.feature.common.PageLoader
+import net.venipa.stashling.feature.common.PortraitAvatar
 import net.venipa.stashling.feature.common.Region
+import net.venipa.stashling.feature.common.SceneSwipeController
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.apiValue
+import net.venipa.stashling.feature.common.collectVisible
 import net.venipa.stashling.feature.common.fullSpan
+import net.venipa.stashling.feature.common.groupShape
 import net.venipa.stashling.feature.common.javTagId
 import net.venipa.stashling.feature.common.listPadding
+import net.venipa.stashling.feature.common.rememberPerformerMenu
 import net.venipa.stashling.feature.common.rememberSceneListMode
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.feature.common.withRegion
@@ -91,11 +111,9 @@ enum class HomeTab(val label: Int) {
     Favorites(R.string.home_favorites),
 }
 
-class HomeViewModel(
-    private val stash: CachingStashDbApi,
-    settings: Flow<Settings>,
-) : ViewModel() {
-    private val gender = settings.map { it.performerGender.apiValue() }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+class HomeViewModel(c: AppContainer) : ViewModel() {
+    private val stash: CachingStashDbApi = c.stash
+    private val gender = c.settings.settings.map { it.performerGender.apiValue() }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, null)
 
     private val _selected = MutableStateFlow(HomeTab.Trending)
     val selected: StateFlow<HomeTab> = _selected
@@ -167,7 +185,7 @@ fun HomeScreen(
     onOpenPerformer: (String) -> Unit,
 ) {
     val c = LocalAppContainer.current
-    val vm = tabViewModel { HomeViewModel(c.stash, c.settings.settings) }
+    val vm = tabViewModel { HomeViewModel(c) }
     val tab by vm.selected.collectAsState()
     val region by vm.region.collectAsState()
     val javTag by vm.javTag.collectAsState()
@@ -175,7 +193,7 @@ fun HomeScreen(
     // Region only applies once the tag is known.
     val effective = if (javTag == null) Region.All else region
     val loader = vm.loader(tab, effective)
-    val state by loader.state.collectAsState()
+    val state = loader.collectVisible()
     val mode by rememberSceneListMode()
     val scroll = remember(vm) {
         object : NestedScrollConnection {
@@ -212,14 +230,9 @@ private fun FavoritesRow(
     SectionHeader(stringResource(R.string.browse_fav_performers))
     LazyRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
         items(performers, key = { it.id }) { p ->
-            Column(
-                Modifier.width(76.dp).clip(MaterialTheme.shapes.medium).clickable { onOpen(p.id) }.padding(vertical = Space.Xs),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(Space.Xs),
-            ) {
-                StashImage((p.images.firstOrNull() ?: p.thumbnail)?.sized(300), Modifier.size(64.dp).clip(CircleShape), p.name)
-                Text(p.name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
+            val image = p.images.firstOrNull() ?: p.thumbnail
+            val menu = rememberPerformerMenu(PerformerRef(p.id, p.name, p.disambiguation, null, image), MaterialTheme.shapes.medium)
+            PortraitAvatar(p.name, image?.sized(300), { onOpen(p.id) }, menu.modifier, onLongClick = menu.open)
         }
     }
 }
@@ -234,7 +247,7 @@ private val DockItemShape = concentricShape(GlassCorner, 8.dp)
 @Composable
 fun HomeDockControls() {
     val c = LocalAppContainer.current
-    val vm = tabViewModel { HomeViewModel(c.stash, c.settings.settings) }
+    val vm = tabViewModel { HomeViewModel(c) }
     val tab by vm.selected.collectAsState()
     val region by vm.region.collectAsState()
     val javTag by vm.javTag.collectAsState()

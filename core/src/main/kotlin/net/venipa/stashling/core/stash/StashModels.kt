@@ -27,6 +27,10 @@ data class SceneCard(
     val performers: List<String>,
     /** Same order as [performers]; used to hide scenes of hidden performers. */
     val performerIds: List<String> = emptyList(),
+    /** Same order as [performerIds]: GenderEnum names (null = unknown), for the gender setting's scene filter. */
+    val performerGenders: List<String?> = emptyList(),
+    /** StashDB tag ids: the Whisparr preset resolves locally from these (no detail call before a swipe). */
+    val tagIds: List<String> = emptyList(),
 )
 
 data class Scene(
@@ -48,7 +52,7 @@ data class Scene(
 
 data class BodyMod(val location: String, val description: String?)
 
-/** From a list call (performers/searchPerformers) aliases, body mods, images, urls and studios are empty: load [StashDbApi.performer]. */
+/** From a list call (performers/searchPerformers) body mods, images, urls and studios are empty: load [StashDbApi.performer]. */
 data class Performer(
     val id: String,
     val name: String,
@@ -83,7 +87,7 @@ data class Performer(
     val studios: List<Pair<StudioRef, Int>>,
 )
 
-/** From [StashDbApi.studios] aliases, children and urls are empty: load [StashDbApi.studio]. */
+/** From [StashDbApi.studios] children and urls are empty: load [StashDbApi.studio]. */
 data class Studio(
     val id: String,
     val name: String,
@@ -185,7 +189,8 @@ interface StashDbApi {
 
     suspend fun performers(filter: PerformerFilter, page: Int, perPage: Int = 40): Page<Performer>
 
-    suspend fun searchPerformers(term: String, page: Int, perPage: Int = 40): Page<Performer>
+    /** [gender] is a GenderEnum name (server-side PerformerSearchFilter). */
+    suspend fun searchPerformers(term: String, page: Int, perPage: Int = 40, gender: String? = null): Page<Performer>
 
     suspend fun performer(id: String): Performer?
 

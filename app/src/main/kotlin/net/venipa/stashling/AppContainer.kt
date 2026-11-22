@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.venipa.stashling.core.data.BookmarkRepository
+import net.venipa.stashling.core.data.HiddenIds
 import net.venipa.stashling.core.data.HiddenRepository
 import net.venipa.stashling.core.data.RoomBookmarkRepository
 import net.venipa.stashling.core.data.SecretStore
@@ -24,6 +25,7 @@ import net.venipa.stashling.core.stash.StashDbClient
 import net.venipa.stashling.core.stash.newStashHttpClient
 import net.venipa.stashling.core.whisparr.WhisparrClients
 import net.venipa.stashling.core.whisparr.WhisparrRepository
+import net.venipa.stashling.feature.common.apiValue
 import net.venipa.stashling.feature.lock.AppLockController
 
 /** Manual DI: one instance per process, created by [StashlingApp]. */
@@ -38,6 +40,15 @@ class AppContainer(context: Context) {
     val bookmarks: BookmarkRepository by lazy { RoomBookmarkRepository(db.bookmarks()) }
     val hidden: HiddenRepository by lazy { HiddenRepository(db.hidden()) }
 
+    /** Hidden ids for the scene list filters, loaded at start so lists never flash hidden scenes. */
+    val hiddenIds: StateFlow<HiddenIds> by lazy { hidden.ids().stateIn(appScope, SharingStarted.Eagerly, HiddenIds()) }
+
+    /** Settings for per-item reads in lists (preset labels); null until DataStore answers. */
+    val settingsNow: StateFlow<net.venipa.stashling.core.data.Settings?> by lazy { settings.settings.stateIn(appScope, SharingStarted.Eagerly, null) }
+
+    /** Settings.performerGender as a GenderEnum name (null = both), for the scene list filter. */
+    val sceneGender: StateFlow<String?> by lazy { settings.settings.map { it.performerGender.apiValue() }.stateIn(appScope, SharingStarted.Eagerly, null) }
+
     // StashDB: its own client (https only, no redirects); the key is read per call, so a re-login needs no rebuild.
     // Cached: renavigating never refetches; pull-to-refresh calls stash.invalidate(). A new account starts empty.
     val stash = CachingStashDbApi(StashDbClient(newStashHttpClient()) { secrets.stash.value })
@@ -45,6 +56,9 @@ class AppContainer(context: Context) {
     init {
         appScope.launch { secrets.stash.collect { stash.invalidate() } }
     }
+
+    /** Swipe / menu scene actions; app-scoped so a hide or add finishes even when its screen is gone. */
+    val sceneActions by lazy { net.venipa.stashling.feature.common.SceneSwipeController(this, appScope) }
 
     val appLock by lazy { AppLockController(settings.settings, appScope) }
 

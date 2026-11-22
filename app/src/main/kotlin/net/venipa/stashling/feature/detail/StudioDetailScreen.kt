@@ -55,6 +55,7 @@ import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.StashTopBar
+import net.venipa.stashling.feature.common.collectVisible
 import net.venipa.stashling.feature.common.fullSpan
 import net.venipa.stashling.feature.common.listPadding
 import net.venipa.stashling.feature.common.loadOf
@@ -114,7 +115,7 @@ fun StudioDetailScreen(
     val load by vm.state.collectAsState()
     val bookmarked by vm.actions.bookmarked.collectAsState()
     val favorite by vm.actions.favorite.collectAsState()
-    val scenes by vm.scenes.state.collectAsState()
+    val scenes = vm.scenes.collectVisible()
     val mode by rememberSceneListMode()
     val snackbar = remember { SnackbarHostState() }
     val context = LocalContext.current

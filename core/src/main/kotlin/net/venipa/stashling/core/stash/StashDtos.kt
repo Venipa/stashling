@@ -66,6 +66,8 @@ internal data class SceneDto(
         cover = (images.firstOrNull { it.width >= it.height } ?: images.firstOrNull())?.toModel(),
         performers = performers.map { it.performer.name },
         performerIds = performers.map { it.performer.id },
+        performerGenders = performers.map { it.performer.gender },
+        tagIds = tags.map { it.id },
     )
 
     fun toModel() = Scene(

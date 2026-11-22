@@ -15,11 +15,13 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
+import net.venipa.stashling.core.data.HiddenKind
 import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.data.ThemeMode
 import net.venipa.stashling.ds.AppSnackbar
@@ -29,6 +31,7 @@ import net.venipa.stashling.ds.ScreenColumn
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
+import net.venipa.stashling.feature.common.BrowseIcons
 import net.venipa.stashling.nav.LocalDockInset
 import net.venipa.stashling.nav.SettingsSection
 
@@ -44,6 +47,7 @@ fun SettingsScreen(
     val container = LocalAppContainer.current
     val settings by container.settings.settings.collectAsState(Settings())
     val whisparr by container.secrets.whisparr.collectAsState()
+    val hidden by remember(container) { container.hidden.observe() }.collectAsState(emptyList())
     when (section) {
         SettingsSection.Menu -> {
             val theme = stringResource(
@@ -78,6 +82,18 @@ fun SettingsScreen(
                             onClick = { onOpen(SettingsSection.WhisparrDefaults) },
                         )
                     }
+                    GroupRow(
+                        stringResource(R.string.settings_browsing),
+                        supporting = stringResource(settings.performerGender.menuRes()),
+                        icon = StashlingIcons.Search,
+                        onClick = { onOpen(SettingsSection.Browsing) },
+                    )
+                    GroupRow(
+                        stringResource(R.string.settings_hidden),
+                        supporting = stringResource(R.string.settings_hidden_value, hidden.count { it.kind == HiddenKind.SCENE }, hidden.count { it.kind == HiddenKind.PERFORMER }),
+                        icon = BrowseIcons.VisibilityOff,
+                        onClick = { onOpen(SettingsSection.Hidden) },
+                    )
                     GroupRow(stringResource(R.string.settings_storage), supporting = stringResource(R.string.settings_storage_value), icon = StashlingIcons.ClearCache, onClick = { onOpen(SettingsSection.Storage) })
                     GroupRow(stringResource(R.string.settings_about), supporting = stringResource(R.string.settings_about_value, net.venipa.stashling.BuildConfig.VERSION_NAME), icon = StashlingIcons.Info, onClick = { onOpen(SettingsSection.About) })
                 }
@@ -91,6 +107,10 @@ fun SettingsScreen(
         SettingsSection.Accounts -> AccountsPage(onBack, onRerun)
 
         SettingsSection.WhisparrDefaults -> WhisparrSettings(onBack, onRerun)
+
+        SettingsSection.Browsing -> BrowsingPage(settings, hidden.size, onBack, onOpen)
+
+        SettingsSection.Hidden -> HiddenPage(hidden, onBack)
 
         SettingsSection.Storage -> StoragePage(onBack)
 

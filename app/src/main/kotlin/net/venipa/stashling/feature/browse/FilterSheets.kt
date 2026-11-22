@@ -44,6 +44,7 @@ import net.venipa.stashling.ds.fieldColors
 import net.venipa.stashling.ds.fieldShape
 import net.venipa.stashling.ds.sheetTitle
 import net.venipa.stashling.ds.stableFieldHeight
+import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.groupShape
 import java.time.LocalDate
 
@@ -65,11 +66,15 @@ internal fun SheetRow(
     supporting: String?,
     selected: Boolean,
     shape: RoundedCornerShape,
+    imageUrl: String? = null,
     onClick: () -> Unit,
 ) = Row(
-    Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(onClick = onClick).padding(horizontal = Space.L, vertical = Space.M),
+    Modifier.fillMaxWidth().clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(onClick = onClick).padding(horizontal = Space.L, vertical = if (imageUrl != null) Space.S else Space.M),
+    horizontalArrangement = Arrangement.spacedBy(Space.M),
     verticalAlignment = Alignment.CenterVertically,
 ) {
+    // Performers: a small 2:3 portrait, 8 dp corners.
+    imageUrl?.let { StashImage(it, Modifier.size(32.dp, 48.dp).clip(RoundedCornerShape(8.dp))) }
     Column(Modifier.weight(1f)) {
         Text(label, style = MaterialTheme.typography.bodyLarge)
         supporting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
@@ -77,7 +82,7 @@ internal fun SheetRow(
     if (selected) Icon(StashlingIcons.Check, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
 }
 
-data class PickItem(val id: String, val title: String, val subtitle: String? = null, val group: String? = null)
+data class PickItem(val id: String, val title: String, val subtitle: String? = null, val group: String? = null, val imageUrl: String? = null)
 
 private sealed interface PickResult {
     data object Loading : PickResult

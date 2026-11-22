@@ -50,6 +50,7 @@ import net.venipa.stashling.AppContainer
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.core.data.BookmarkKind
+import net.venipa.stashling.core.data.HiddenKind
 import net.venipa.stashling.core.stash.Scene
 import net.venipa.stashling.core.whisparr.AddMode
 import net.venipa.stashling.core.whisparr.PanelState
@@ -71,10 +72,12 @@ import net.venipa.stashling.feature.common.BrowseIcons
 import net.venipa.stashling.feature.common.EntityActions
 import net.venipa.stashling.feature.common.Load
 import net.venipa.stashling.feature.common.LoadGate
+import net.venipa.stashling.feature.common.PortraitAvatar
 import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.formatDuration
 import net.venipa.stashling.feature.common.loadOf
 import net.venipa.stashling.feature.common.openLink
+import net.venipa.stashling.feature.common.rememberPerformerMenu
 import net.venipa.stashling.feature.common.stashWebUrl
 import net.venipa.stashling.feature.detail.whisparr.WhisparrPanel
 import net.venipa.stashling.feature.detail.whisparr.WhisparrPanelViewModel
@@ -150,7 +153,7 @@ private fun SceneBody(
                 }
             }
         }
-        if (actions) SceneActionsSheet(scene.id, scene.title, bookmarked, onBookmark) { actions = false }
+        if (actions) SceneActionsSheet(scene, bookmarked, onBookmark) { actions = false }
         Column(Modifier.padding(horizontal = Space.L).readableWidth(), verticalArrangement = Arrangement.spacedBy(Space.L)) {
             if (scene.deleted) {
                 TonalCard(tone = CardTone.Error) { Text(stringResource(R.string.detail_deleted)) }
@@ -182,11 +185,8 @@ private fun SceneBody(
                     SectionHeader(stringResource(R.string.detail_performers))
                     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.M)) {
                         scene.performers.forEach { p ->
-                            Column(Modifier.width(88.dp).clip(concentricShape(16.dp, 0.dp)).clickable { onOpenPerformer(p.id) }, horizontalAlignment = Alignment.CenterHorizontally) {
-                                StashImage(p.thumbnail?.sized(300), Modifier.size(72.dp).clip(CircleShape), p.name)
-                                Text(p.name, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
-                                p.asName?.let { Text(stringResource(R.string.detail_as, it), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
-                            }
+                            val menu = rememberPerformerMenu(p, MaterialTheme.shapes.medium)
+                            PortraitAvatar(p.name, p.thumbnail?.sized(300), { onOpenPerformer(p.id) }, menu.modifier, supporting = p.asName?.let { stringResource(R.string.detail_as, it) }, onLongClick = menu.open)
                         }
                     }
                 }
@@ -231,8 +231,7 @@ private fun SceneBody(
 /** Scene overflow: Open on StashDB, Add to Whisparr (while the panel says not in Whisparr; same panel ViewModel), Remove bookmark. */
 @Composable
 private fun SceneActionsSheet(
-    id: String,
-    title: String?,
+    scene: Scene,
     bookmarked: Boolean,
     onRemoveBookmark: () -> Unit,
     onDismiss: () -> Unit,
@@ -240,14 +239,31 @@ private fun SceneActionsSheet(
     val c = LocalAppContainer.current
     val context = LocalContext.current
     val whisparr by c.whisparr.collectAsState()
+    val id = scene.id
     val panel: WhisparrPanelViewModel = viewModel(key = "whisparr-$id") { WhisparrPanelViewModel(id, c) }
     val panelState by panel.state.collectAsState()
     val searchOnAdd by panel.searchOnAdd.collectAsState()
+    val hidden by c.hiddenIds.collectAsState()
+    val acts = c.sceneActions
+    val sceneHidden = id in hidden.scenes
+    val one = scene.performers.singleOrNull()
     ActionSheet(
-        title,
+        scene.title,
         listOfNotNull(
             SheetAction(stringResource(R.string.library_open_stashdb), StashlingIcons.OpenExternal) { c.secrets.stash.value?.let { openLink(context, stashWebUrl(it.baseUrl, BookmarkKind.SCENE, id)) } },
             if (whisparr != null && panelState is PanelState.NotInLibrary) SheetAction(stringResource(R.string.library_add_whisparr), StashlingIcons.Download) { panel.add(if (searchOnAdd) AddMode.QUEUE else AddMode.REQUEST) } else null,
+            // Hide from here too; the page stays, lists drop the scene (snackbar with Undo from SceneActionsHost).
+            if (sceneHidden) {
+                SheetAction(stringResource(R.string.swipe_unhide_scene), StashlingIcons.Visibility) { acts.unhide(HiddenKind.SCENE, id) }
+            } else {
+                SheetAction(stringResource(R.string.swipe_hide_scene), BrowseIcons.VisibilityOff) { acts.hideScene(id, scene.title, scene.images.firstOrNull()?.sized(300)) }
+            },
+            when {
+                one != null && one.id in hidden.performers -> SheetAction(stringResource(R.string.swipe_unhide_performer), StashlingIcons.Visibility) { acts.unhide(HiddenKind.PERFORMER, one.id) }
+                one != null -> SheetAction(stringResource(R.string.swipe_hide_performer), BrowseIcons.PersonRemove) { acts.hidePerformerOf(id, scene.performers) }
+                scene.performers.size > 1 -> SheetAction(stringResource(R.string.swipe_hide_performer_menu), BrowseIcons.PersonRemove) { acts.hidePerformerOf(id, scene.performers.filterNot { it.id in hidden.performers }) }
+                else -> null
+            },
             if (bookmarked) SheetAction(stringResource(R.string.library_remove), StashlingIcons.Delete, destructive = true, onClick = onRemoveBookmark) else null,
         ),
         onDismiss,

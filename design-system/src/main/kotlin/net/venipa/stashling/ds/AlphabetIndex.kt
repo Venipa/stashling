@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.LoadingIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -29,8 +31,10 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.text.Normalizer
 import kotlin.math.roundToInt
@@ -43,6 +47,12 @@ fun indexLetter(name: String): Char {
     val c = Normalizer.normalize(name.trimStart().take(1), Normalizer.Form.NFD).firstOrNull()?.uppercaseChar() ?: return '#'
     return if (c in 'A'..'Z') c else '#'
 }
+
+/** Rail letter of an item with aliases (JAV): the name's if it starts with a Latin letter, else the first such alias's, else '#'. */
+fun indexLetter(
+    name: String,
+    aliases: List<String>,
+): Char = sequenceOf(name).plus(aliases).map(::indexLetter).firstOrNull { it != '#' } ?: '#'
 
 /** First item position per letter, in list order; [offset] = items placed before [items] in the list (headers). */
 fun <T> letterPositions(
@@ -62,18 +72,26 @@ val AlphabetRailWidth = 28.dp
  * Vertical letter index on the end edge (start in RTL): tap or drag to jump. Letters missing from [positions] are dimmed and
  * skipped (the next present letter wins); a bubble shows the letter while the finger is down, one light tick per letter.
  * [onJump] gets the item index, e.g. `listState::scrollToItem` or `gridState::scrollToItem`.
+ * With [seek] (server-side jump, big lists) every letter is live and [seek] gets the letter instead; the bubble stays with a loading
+ * indicator until it returns. [current] highlights the letter of the first visible item.
  */
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun AlphabetRail(
     positions: Map<Char, Int>,
     onJump: suspend (Int) -> Unit,
     modifier: Modifier = Modifier,
+    seek: (suspend (Char) -> Unit)? = null,
+    current: Char? = null,
 ) {
     val scope = rememberCoroutineScope()
     val haptic = LocalHapticFeedback.current
-    val current by rememberUpdatedState(positions)
+    val present by rememberUpdatedState(positions)
     val jump by rememberUpdatedState(onJump)
+    val seekBy by rememberUpdatedState(seek)
     var active by remember { mutableStateOf<Char?>(null) }
+    var seeking by remember { mutableStateOf<Char?>(null) }
+    var seekJob by remember { mutableStateOf<Job?>(null) }
     var fingerY by remember { mutableFloatStateOf(0f) }
     var height by remember { mutableIntStateOf(1) }
     val cs = MaterialTheme.colorScheme
@@ -81,11 +99,25 @@ fun AlphabetRail(
     fun pick(y: Float) {
         fingerY = y.coerceIn(0f, height.toFloat())
         val i = (fingerY / height * INDEX_LETTERS.length).toInt().coerceIn(0, INDEX_LETTERS.length - 1)
-        val letter = INDEX_LETTERS.drop(i).firstOrNull { it in current } ?: INDEX_LETTERS.take(i).lastOrNull { it in current } ?: return
+        val s = seekBy
+        val letter = if (s != null) INDEX_LETTERS[i] else INDEX_LETTERS.drop(i).firstOrNull { it in present } ?: INDEX_LETTERS.take(i).lastOrNull { it in present } ?: return
         if (letter != active) {
             active = letter
             haptic.performHapticFeedback(HapticFeedbackType.SegmentFrequentTick)
-            scope.launch { jump(current.getValue(letter)) }
+            if (s != null) {
+                // Dragging over letters: only the last one's seek runs to the end.
+                seekJob?.cancel()
+                seeking = letter
+                seekJob = scope.launch {
+                    try {
+                        s(letter)
+                    } finally {
+                        if (seeking == letter) seeking = null
+                    }
+                }
+            } else {
+                scope.launch { jump(present.getValue(letter)) }
+            }
         }
     }
 
@@ -109,10 +141,20 @@ fun AlphabetRail(
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
             INDEX_LETTERS.forEach { l ->
-                Text(l.toString(), style = MaterialTheme.typography.labelSmall, color = if (l in positions) cs.primary else cs.onSurfaceVariant.copy(alpha = 0.38f))
+                val on = seek != null || l in positions
+                Text(
+                    l.toString(),
+                    style = MaterialTheme.typography.labelSmall,
+                    fontWeight = if (l == current) FontWeight.Bold else null,
+                    color = when {
+                        l == current -> cs.onSurface
+                        on -> cs.primary
+                        else -> cs.onSurfaceVariant.copy(alpha = 0.38f)
+                    },
+                )
             }
         }
-        active?.let { l ->
+        (active ?: seeking)?.let { l ->
             // offset (not absoluteOffset) mirrors in RTL, so the bubble always sits on the content side of the rail.
             Box(
                 Modifier
@@ -120,7 +162,10 @@ fun AlphabetRail(
                     .requiredSize(56.dp)
                     .background(cs.primaryContainer, CircleShape),
                 contentAlignment = Alignment.Center,
-            ) { Text(l.toString(), style = MaterialTheme.typography.headlineSmall, color = cs.onPrimaryContainer) }
+            ) {
+                if (seeking == l) LoadingIndicator(Modifier.requiredSize(48.dp), color = cs.onPrimaryContainer.copy(alpha = 0.5f))
+                Text(l.toString(), style = MaterialTheme.typography.headlineSmall, color = cs.onPrimaryContainer)
+            }
         }
     }
 }

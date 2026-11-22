@@ -95,7 +95,13 @@ class StashDbClient(
     override suspend fun performers(filter: PerformerFilter, page: Int, perPage: Int): Page<Performer> = listed(StashQueries.PERFORMERS, input(filter.toInput(), page, perPage), "queryPerformers", serializer<PerformersResult>())
         .let { r -> Page(r.performers.map { it.toModel() }, page, perPage, r.count) }
 
-    override suspend fun searchPerformers(term: String, page: Int, perPage: Int): Page<Performer> = listed(StashQueries.SEARCH_PERFORMERS, searchVars(term, page, perPage), "searchPerformers", serializer<PerformersResult>())
+    override suspend fun searchPerformers(term: String, page: Int, perPage: Int, gender: String?): Page<Performer> = listed(
+        StashQueries.SEARCH_PERFORMERS,
+        // PerformerSearchFilter { gender: GenderEnum } (live schema 2026-11-22).
+        JsonObject(searchVars(term, page, perPage) + listOfNotNull(gender?.let { "filter" to buildJsonObject { put("gender", it) } })),
+        "searchPerformers",
+        serializer<PerformersResult>(),
+    )
         .let { r -> Page(r.performers.map { it.toModel() }, page, perPage, r.count) }
 
     override suspend fun performer(id: String): Performer? = stored(StashQueries.PERFORMER, idVars(id), "findPerformer", serializer<PerformerDto>())?.toModel()

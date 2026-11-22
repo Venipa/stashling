@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
@@ -31,6 +32,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -53,10 +55,13 @@ import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
+import net.venipa.stashling.ds.ContextMenuHost
+import net.venipa.stashling.ds.ContextMenuState
 import net.venipa.stashling.ds.DockTab
 import net.venipa.stashling.ds.GlassCorner
 import net.venipa.stashling.ds.GlassDock
 import net.venipa.stashling.ds.GlassRole
+import net.venipa.stashling.ds.LocalContextMenu
 import net.venipa.stashling.ds.LocalGlass
 import net.venipa.stashling.ds.LocalReduceMotion
 import net.venipa.stashling.ds.Space
@@ -75,6 +80,8 @@ import net.venipa.stashling.ds.rememberGlassState
 import net.venipa.stashling.ds.sharedAxisXEnter
 import net.venipa.stashling.ds.sharedAxisXExit
 import net.venipa.stashling.feature.browse.BrowseScreen
+import net.venipa.stashling.feature.common.SceneActionsHost
+import net.venipa.stashling.feature.common.SwipeMessage
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.feature.detail.PerformerDetailScreen
 import net.venipa.stashling.feature.detail.SceneDetailScreen
@@ -127,6 +134,21 @@ fun AppNav(
             onDeepLinkHandled()
         }
     }
+    // On Home the first back only arms exit ("Press back again to exit", 2 s); armed, the handler is off, so the second
+    // back reaches the system with its predictive back-to-home animation. Any navigation disarms.
+    var exitArmed by remember { mutableStateOf(false) }
+    val onHomeRoot = backStack.size == 1 && backStack.last() == HomeRoute
+    LaunchedEffect(backStack.toList()) { exitArmed = false }
+    LaunchedEffect(exitArmed) {
+        if (exitArmed) {
+            kotlinx.coroutines.delay(2000)
+            exitArmed = false
+        }
+    }
+    BackHandler(enabled = onHomeRoot && !exitArmed) {
+        exitArmed = true
+        container.sceneActions.messages.tryEmit(SwipeMessage(R.string.back_again_exit, brief = true))
+    }
     // A tab root other than Home: back goes Home; on Home the system closes the app.
     BackHandler(enabled = backStack.size == 1 && backStack.last() != HomeRoute) { goTab(HomeRoute) }
 
@@ -150,69 +172,77 @@ fun AppNav(
     LaunchedEffect(hasDownloads, lifecycle) { if (hasDownloads) lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { downloads.poll() } }
     val sections by downloads.sections.collectAsState()
 
-    Box(Modifier.fillMaxSize()) {
-        CompositionLocalProvider(LocalNavigator provides navigator, LocalDockInset provides dockInset, LocalGlass provides glass) {
-            NavDisplay(
-                backStack = backStack,
-                modifier = Modifier.fillMaxSize().glassSource(glass),
-                onBack = { backStack.removeLastOrNull() },
-                entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), rememberViewModelStoreNavEntryDecorator()),
-                transitionSpec = {
-                    if (initialState.isPushed() || targetState.isPushed()) {
-                        sharedAxisXEnter(offsetPx, reduce) togetherWith sharedAxisXExit(offsetPx, reduce)
-                    } else {
-                        fadeThroughEnter(reduce) togetherWith fadeThroughExit()
-                    }
-                },
-                popTransitionSpec = { backEnter(ltr, reduce) togetherWith backExit(ltr, reduce) },
-                predictivePopTransitionSpec = { backEnter(ltr, reduce) togetherWith backExit(ltr, reduce) },
-                entryProvider =
-                entryProvider {
-                    entry<HomeRoute> { HomeScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }) }
-                    entry<BrowseRoute> { BrowseScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
-                    entry<LibraryRoute> { LibraryScreen(hasDownloads, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
-                    entry<SceneDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> SceneDetailScreen(r.id, onBack = navigator.pop, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("scene", r.id, i)) }) }
-                    entry<PerformerDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> PerformerDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("performer", r.id, i)) }) }
-                    entry<StudioDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> StudioDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("studio", r.id, i)) }) }
-                    entry<TagDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> TagDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }) }
-                    entry<GalleryRoute>(metadata = mapOf(PUSHED to true)) { GalleryScreen(it.kind, it.id, it.index, navigator.pop) }
-                    // shell
-                    entry<SettingsTabRoute> { SettingsScreen(SettingsSection.Menu, onBack = navigator.pop, tab = true, onOpen = { s -> navigator.push(SettingsRoute(s)) }, onRerun = { step -> navigator.push(OnboardingRoute(step)) }) }
-                    entry<SettingsRoute>(metadata = mapOf(PUSHED to true)) { SettingsScreen(it.section, onBack = navigator.pop, onOpen = { s -> navigator.push(SettingsRoute(s)) }, onRerun = { step -> navigator.push(OnboardingRoute(step)) }) }
-                    entry<OnboardingRoute>(metadata = mapOf(PUSHED to true)) { OnboardingScreen(only = it.only, onFinished = navigator.pop, onExit = navigator.pop) }
-                },
-            )
-        }
-        val root = backStack.first()
-        // Content melts into a progressive blur under the status bar on the bar-less tabs (tonal fallback in Glass).
-        AnimatedVisibility(showDock && (root == HomeRoute || root == BrowseRoute), Modifier.align(Alignment.TopCenter), enter = fadeIn(), exit = fadeOut()) {
-            Box(Modifier.fillMaxWidth().height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 10.dp).glass(glass, GlassRole.EdgeTop))
-        }
-        val active = if (hasDownloads) sections.downloading.size else 0
-        val onHome = root == HomeRoute
-        AnimatedVisibility(
-            showDock,
-            Modifier.align(Alignment.BottomCenter),
-            enter = navBarEnter(reduce),
-            exit = navBarExit(reduce),
-        ) {
-            val selected = tabKeys.indexOf(backStack.first()).coerceAtLeast(0)
-            // The downloading row and Home's controls are attached to the dock glass, not stacked pills.
-            val top: (@Composable ColumnScope.() -> Unit)? =
-                if (active > 0 || onHome) {
-                    {
-                        if (active > 0) {
-                            DownloadingRow(stringResource(R.string.library_downloading_pill, active, (sections.progress * 100).toInt())) {
-                                downloads.librarySegment.value = 1
-                                goTab(LibraryRoute)
+    // One long-press menu host over everything (blur covers the dock too).
+    val contextMenu = remember { ContextMenuState() }
+    CompositionLocalProvider(LocalContextMenu provides contextMenu) {
+        ContextMenuHost(contextMenu) {
+            Box(Modifier.fillMaxSize()) {
+                CompositionLocalProvider(LocalNavigator provides navigator, LocalDockInset provides dockInset, LocalGlass provides glass) {
+                    NavDisplay(
+                        backStack = backStack,
+                        modifier = Modifier.fillMaxSize().glassSource(glass),
+                        onBack = { backStack.removeLastOrNull() },
+                        entryDecorators = listOf(rememberSaveableStateHolderNavEntryDecorator(), rememberViewModelStoreNavEntryDecorator()),
+                        transitionSpec = {
+                            if (initialState.isPushed() || targetState.isPushed()) {
+                                sharedAxisXEnter(offsetPx, reduce) togetherWith sharedAxisXExit(offsetPx, reduce)
+                            } else {
+                                fadeThroughEnter(reduce) togetherWith fadeThroughExit()
                             }
-                        }
-                        if (onHome) HomeDockControls()
-                    }
-                } else {
-                    null
+                        },
+                        popTransitionSpec = { backEnter(ltr, reduce) togetherWith backExit(ltr, reduce) },
+                        predictivePopTransitionSpec = { backEnter(ltr, reduce) togetherWith backExit(ltr, reduce) },
+                        entryProvider =
+                        entryProvider {
+                            entry<HomeRoute> { HomeScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }) }
+                            entry<BrowseRoute> { BrowseScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
+                            entry<LibraryRoute> { LibraryScreen(hasDownloads, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
+                            entry<SceneDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> SceneDetailScreen(r.id, onBack = navigator.pop, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("scene", r.id, i)) }) }
+                            entry<PerformerDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> PerformerDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("performer", r.id, i)) }) }
+                            entry<StudioDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> StudioDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("studio", r.id, i)) }) }
+                            entry<TagDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> TagDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }) }
+                            entry<GalleryRoute>(metadata = mapOf(PUSHED to true)) { GalleryScreen(it.kind, it.id, it.index, navigator.pop) }
+                            // shell
+                            entry<SettingsTabRoute> { SettingsScreen(SettingsSection.Menu, onBack = navigator.pop, tab = true, onOpen = { s -> navigator.push(SettingsRoute(s)) }, onRerun = { step -> navigator.push(OnboardingRoute(step)) }) }
+                            entry<SettingsRoute>(metadata = mapOf(PUSHED to true)) { SettingsScreen(it.section, onBack = navigator.pop, onOpen = { s -> navigator.push(SettingsRoute(s)) }, onRerun = { step -> navigator.push(OnboardingRoute(step)) }) }
+                            entry<OnboardingRoute>(metadata = mapOf(PUSHED to true)) { OnboardingScreen(only = it.only, onFinished = navigator.pop, onExit = navigator.pop) }
+                        },
+                    )
                 }
-            GlassDock(glass, tabs, selected, onSelect = { goTab(tabKeys[it]) }, onHeightChanged = { dockPx = it }, top = top)
+                val root = backStack.first()
+                // Content melts into a progressive blur under the status bar on the bar-less tabs (tonal fallback in Glass).
+                AnimatedVisibility(showDock && (root == HomeRoute || root == BrowseRoute), Modifier.align(Alignment.TopCenter), enter = fadeIn(), exit = fadeOut()) {
+                    Box(Modifier.fillMaxWidth().height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 10.dp).glass(glass, GlassRole.EdgeTop))
+                }
+                val active = if (hasDownloads) sections.downloading.size else 0
+                val onHome = root == HomeRoute
+                AnimatedVisibility(
+                    showDock,
+                    Modifier.align(Alignment.BottomCenter),
+                    enter = navBarEnter(reduce),
+                    exit = navBarExit(reduce),
+                ) {
+                    val selected = tabKeys.indexOf(backStack.first()).coerceAtLeast(0)
+                    // The downloading row and Home's controls are attached to the dock glass, not stacked pills.
+                    val top: (@Composable ColumnScope.() -> Unit)? =
+                        if (active > 0 || onHome) {
+                            {
+                                if (active > 0) {
+                                    DownloadingRow(stringResource(R.string.library_downloading_pill, active, (sections.progress * 100).toInt())) {
+                                        downloads.librarySegment.value = 1
+                                        goTab(LibraryRoute)
+                                    }
+                                }
+                                if (onHome) HomeDockControls()
+                            }
+                        } else {
+                            null
+                        }
+                    GlassDock(glass, tabs, selected, onSelect = { goTab(tabKeys[it]) }, onHeightChanged = { dockPx = it }, top = top)
+                }
+                // Scene action messages (swipe / detail menus) above the dock, or above the nav bar on pushed routes.
+                SceneActionsHost(Modifier.align(Alignment.BottomCenter).then(if (showDock) Modifier.padding(bottom = dockInset) else Modifier.navigationBarsPadding()))
+            }
         }
     }
 }

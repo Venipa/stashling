@@ -86,6 +86,8 @@ data class Settings(
     /** Custom presets, without Default. */
     val presets: List<WhisparrPreset> = emptyList(),
     val tagRules: List<TagRule> = emptyList(),
+    /** Browse search history: last 10, newest first. */
+    val recentSearches: List<String> = emptyList(),
 ) {
     /** Default first, then the custom ones. */
     val allPresets: List<WhisparrPreset> get() = listOf(whisparr.asPreset()) + presets

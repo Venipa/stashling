@@ -101,6 +101,8 @@ object BrowseIcons {
     val Favorite by lazy { icon("Favorite", "M16.5 3c-1.74 0-3.41.81-4.5 2.09C10.91 3.81 9.24 3 7.5 3 4.42 3 2 5.42 2 8.5c0 3.78 3.4 6.86 8.55 11.54L12 21.35l1.45-1.32C18.6 15.36 22 12.28 22 8.5 22 5.42 19.58 3 16.5 3zm-4.4 15.55l-.1.1-.1-.1C7.14 14.24 4 11.39 4 8.5 4 6.5 5.5 5 7.5 5c1.54 0 3.04.99 3.57 2.36h1.87C13.46 5.99 14.96 5 16.5 5c2 0 3.5 1.5 3.5 3.5 0 2.89-3.14 5.74-7.9 10.05z") }
     val Filter by lazy { icon("Filter", "M3 17v2h6v-2H3zM3 5v2h10V5H3zm10 16v-2h8v-2h-8v-2h-2v6h2zM7 9v2H3v2h4v2h2V9H7zm14 4v-2H11v2h10zm-6-4h2V7h4V5h-4V3h-2v6z") }
     val History by lazy { icon("History", "M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z") }
+    val VisibilityOff by lazy { icon("VisibilityOff", "M12 7c2.76 0 5 2.24 5 5 0 .65-.13 1.26-.36 1.83l2.92 2.92c1.51-1.26 2.7-2.89 3.43-4.75-1.73-4.39-6-7.5-11-7.5-1.4 0-2.74.25-3.98.7l2.16 2.16C10.74 7.13 11.35 7 12 7zM2 4.27l2.28 2.28.46.46C3.08 8.3 1.78 10.02 1 12c1.73 4.39 6 7.5 11 7.5 1.55 0 3.03-.3 4.38-.84l.42.42L19.73 22 21 20.73 3.27 3 2 4.27zM7.53 9.8l1.55 1.55c-.05.21-.08.43-.08.65 0 1.66 1.34 3 3 3 .22 0 .44-.03.65-.08l1.55 1.55c-.67.33-1.41.53-2.2.53-2.76 0-5-2.24-5-5 0-.79.2-1.53.53-2.2zm4.31-.78l3.15 3.15.02-.16c0-1.66-1.34-3-3-3l-.17.01z") }
+    val PersonRemove by lazy { icon("PersonRemove", "M14 8c0-2.21-1.79-4-4-4S6 5.79 6 8s1.79 4 4 4 4-1.79 4-4zm3 2v2h6v-2h-6zM2 18v2h16v-2c0-2.66-5.33-4-8-4s-8 1.34-8 4z") }
     val FavoriteFilled by lazy { icon("FavoriteFilled", "M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z") }
 }
 
@@ -242,8 +244,10 @@ fun PosterTile(
 @Composable
 fun SceneCardTile(
     scene: SceneCard,
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
-) = Tile(onClick) {
+) = Tile(onClick, modifier, onLongClick) {
     StashImage(scene.cover?.sized(600), Modifier.fillMaxWidth().aspectRatio(16f / 9f).clip(concentricShape(CardOuter, CardPad)))
     Column(Modifier.padding(horizontal = Space.S).padding(bottom = Space.Xs)) {
         Text(scene.title ?: stringResource(R.string.browse_untitled), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -257,8 +261,10 @@ fun SceneRow(
     scene: SceneCard,
     index: Int,
     count: Int,
+    modifier: Modifier = Modifier,
+    onLongClick: (() -> Unit)? = null,
     onClick: () -> Unit,
-) = MediaRow(scene.title ?: stringResource(R.string.browse_untitled), scene.meta(), scene.cover?.sized(300), index, count, onClick)
+) = MediaRow(scene.title ?: stringResource(R.string.browse_untitled), scene.meta(), scene.cover?.sized(300), index, count, onClick, modifier, onLongClick = onLongClick)
 
 /** [SceneRow] from plain values (bookmarks store a sized url already). */
 @Composable
@@ -271,12 +277,13 @@ fun MediaRow(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     scale: ContentScale = ContentScale.Crop,
+    onLongClick: (() -> Unit)? = null,
 ) = Row(
     modifier
         .fillMaxWidth()
         .clip(groupShape(index, count))
         .background(MaterialTheme.colorScheme.surfaceContainer)
-        .clickable(onClick = onClick)
+        .combinedClickable(onLongClick = onLongClick, onClick = onClick)
         .padding(CardPad),
     horizontalArrangement = Arrangement.spacedBy(Space.M),
     verticalAlignment = Alignment.CenterVertically,
@@ -293,6 +300,24 @@ fun MediaRow(
         Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
         meta?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) }
     }
+}
+
+/** A performer as a small 2:3 portrait tile with the name below (no circles); standalone, so shapes.medium. */
+@Composable
+fun PortraitAvatar(
+    name: String,
+    imageUrl: String?,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+    supporting: String? = null,
+    onLongClick: (() -> Unit)? = null,
+) = Column(
+    modifier.width(72.dp).clip(MaterialTheme.shapes.medium).combinedClickable(onLongClick = onLongClick, onClick = onClick),
+    verticalArrangement = Arrangement.spacedBy(Space.Xs),
+) {
+    StashImage(imageUrl, Modifier.size(72.dp, 108.dp).clip(MaterialTheme.shapes.medium), name)
+    Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+    supporting?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
 }
 
 /** Unauthorized shows "Sign in again" (routes to the StashDB onboarding step, nothing is cleared); other errors show Retry. */
@@ -374,6 +399,7 @@ fun <T> PagedGrid(
             horizontalArrangement = Arrangement.spacedBy(spacing),
         ) {
             header?.invoke(this)
+            if (state.loadingPrevious) fullSpan("previous") { PagingFooter(true, false, onRetry) }
             if (firstLoad) items(SKELETON_COUNT, key = { "skeleton$it" }) { skeleton(it, SKELETON_COUNT) }
             itemsIndexed(state.items, key = { _, it -> key(it) }) { i, it -> item(i, it) }
             if (state.items.isEmpty() && !state.loading && state.error == null && state.started) {
@@ -426,7 +452,13 @@ fun ScenesGrid(
     onRefresh = onRefresh,
     skeleton = { i, n -> if (mode == ListMode.CARDS) SceneCardSkeleton() else SceneRowSkeleton(i, n) },
 ) { i, s ->
-    if (mode == ListMode.CARDS) SceneCardTile(s) { onOpen(s.id) } else SceneRow(s, i, state.items.size) { onOpen(s.id) }
+    val shape = if (mode == ListMode.CARDS) RoundedCornerShape(CardOuter) else groupShape(i, state.items.size)
+    // Long-press menu and swipe actions on every scene list (Library uses its own rows, so neither there).
+    val menu = rememberSceneMenu(s, shape)
+    val tile: @Composable () -> Unit = {
+        if (mode == ListMode.CARDS) SceneCardTile(s, menu.modifier, menu.open) { onOpen(s.id) } else SceneRow(s, i, state.items.size, menu.modifier, menu.open) { onOpen(s.id) }
+    }
+    SwipeableScene(s, shape, tile)
 }
 
 /** Filter button with the count of non-default filters as a badge (Home dock, Browse search row). */

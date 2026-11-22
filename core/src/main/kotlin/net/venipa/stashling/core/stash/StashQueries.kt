@@ -8,11 +8,11 @@ internal object StashQueries {
     private const val URLS = "urls { url site { name } }"
 
     private const val SCENE_CARD =
-        "fragment SceneCard on Scene { id title release_date duration studio { id name } images { $IMAGE } performers { performer { id name } } }"
+        "fragment SceneCard on Scene { id title release_date duration studio { id name } images { $IMAGE } performers { performer { id name gender } } tags { id name } }"
 
     // List fields only; the detail query adds the rest.
     private const val PERFORMER_CARD =
-        "fragment PerformerCard on Performer { id name disambiguation gender country scene_count is_favorite deleted merged_into_id images { $IMAGE } }"
+        "fragment PerformerCard on Performer { id name disambiguation aliases gender country scene_count is_favorite deleted merged_into_id images { $IMAGE } }"
 
     const val SCENES = "query Scenes(\$input: SceneQueryInput!) { queryScenes(input: \$input) { count scenes { ...SceneCard } } } $SCENE_CARD"
 
@@ -30,8 +30,8 @@ internal object StashQueries {
         "query Performers(\$input: PerformerQueryInput!) { queryPerformers(input: \$input) { count performers { ...PerformerCard } } } $PERFORMER_CARD"
 
     const val SEARCH_PERFORMERS =
-        "query SearchPerformers(\$term: String!, \$page: Int!, \$per: Int!) " +
-            "{ searchPerformers(term: \$term, page: \$page, per_page: \$per) { count performers { ...PerformerCard } } } $PERFORMER_CARD"
+        "query SearchPerformers(\$term: String!, \$page: Int!, \$per: Int!, \$filter: PerformerSearchFilter) " +
+            "{ searchPerformers(term: \$term, page: \$page, per_page: \$per, filter: \$filter) { count performers { ...PerformerCard } } } $PERFORMER_CARD"
 
     const val PERFORMER =
         "query Performer(\$id: ID!) { findPerformer(id: \$id) { id name disambiguation aliases gender birth_date death_date age country " +
@@ -41,7 +41,7 @@ internal object StashQueries {
 
     const val STUDIOS =
         "query Studios(\$input: StudioQueryInput!) { queryStudios(input: \$input) { count studios " +
-            "{ id name is_favorite deleted images { $IMAGE } parent { id name } } } }"
+            "{ id name aliases is_favorite deleted images { $IMAGE } parent { id name } } } }"
 
     // child_studios is deprecated on master in favour of sub_studios(input); kept because an older deployed schema has only child_studios.
     const val STUDIO =

@@ -149,4 +149,46 @@
     <string name="library_connect_whisparr">Connect Whisparr</string>
     <string name="library_queue_empty">Queue is empty</string>
     <string name="library_queue_empty_body">Scenes you add to Whisparr show up here while they download.</string>
+    <!-- Home swipe actions + hidden list -->
+    <string name="swipe_add">Add · %1$s</string>
+    <string name="swipe_add_plain">Add to Whisparr</string>
+    <string name="swipe_search_again">Search again</string>
+    <string name="swipe_searching">Searching in Whisparr</string>
+    <string name="swipe_already_searching">Already searching</string>
+    <string name="swipe_already_downloading">Already downloading</string>
+    <string name="swipe_already_downloaded">Already downloaded</string>
+    <string name="menu_favorite_failed">Could not change the StashDB favorite</string>
+    <string name="back_again_exit">Press back again to exit</string>
+    <string name="swipe_hide_scene">Hide scene</string>
+    <string name="swipe_hide_performer">Hide performer</string>
+    <string name="swipe_added">Added · %1$s</string>
+    <string name="swipe_scene_hidden">Scene hidden</string>
+    <string name="swipe_performer_hidden">Hidden %1$s</string>
+    <string name="swipe_unhidden">Unhidden</string>
+    <string name="swipe_unhide_scene">Unhide scene</string>
+    <string name="swipe_unhide_performer">Unhide performer</string>
+    <string name="swipe_hide_performer_menu">Hide performer…</string>
+    <string name="swipe_pick_performer">Hide which performer?</string>
+    <plurals name="swipe_hide_n">
+        <item quantity="one">Hide %1$d performer</item>
+        <item quantity="other">Hide %1$d performers</item>
+    </plurals>
+    <string name="settings_browsing">Browsing &amp; search</string>
+    <string name="settings_browsing_female">Female performers</string>
+    <string name="settings_browsing_male">Male performers</string>
+    <string name="settings_browsing_both">All performers</string>
+    <string name="settings_gender_scenes_note">Also hides scenes without a matching performer</string>
+    <string name="settings_scene_layout">Scene layout</string>
+    <string name="settings_recent_searches">Recent searches</string>
+    <string name="settings_clear_recents">Clear recent searches</string>
+    <string name="settings_recents_none">No recent searches</string>
+    <string name="settings_recents_count">%1$d saved</string>
+    <string name="settings_hidden_link">Hidden scenes &amp; performers (%1$d)</string>
+    <string name="settings_hidden">Hidden</string>
+    <string name="settings_hidden_value">%1$d scenes · %2$d performers</string>
+    <string name="hidden_scenes">Hidden scenes</string>
+    <string name="hidden_performers">Hidden performers</string>
+    <string name="hidden_unhide">Unhide</string>
+    <string name="hidden_empty">Nothing hidden</string>
+    <string name="hidden_empty_body">Swipe a scene on Home towards the start to hide it, or further to hide its performer.</string>
 </resources>

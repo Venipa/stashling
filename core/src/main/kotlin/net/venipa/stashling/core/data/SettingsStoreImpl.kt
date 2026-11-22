@@ -49,6 +49,7 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
         val W_TAGS = stringPreferencesKey("whisparr_tag_ids")
         val PRESETS = stringPreferencesKey("whisparr_presets")
         val RULES = stringPreferencesKey("whisparr_tag_rules")
+        val RECENTS = stringPreferencesKey("recent_searches")
         val json = Json { ignoreUnknownKeys = true }
 
         // An unreadable list reads as empty rather than crashing every Settings read.
@@ -86,6 +87,7 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
                 historyCursor = this[CURSOR],
                 presets = list(PRESETS, WhisparrPreset.serializer()),
                 tagRules = list(RULES, TagRule.serializer()),
+                recentSearches = list(RECENTS, String.serializer()),
             )
         }
 
@@ -110,6 +112,7 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
             this[W_TAGS] = json.encodeToString(ListSerializer(Int.serializer()), s.whisparr.tagIds)
             this[PRESETS] = json.encodeToString(ListSerializer(WhisparrPreset.serializer()), s.presets)
             this[RULES] = json.encodeToString(ListSerializer(TagRule.serializer()), s.tagRules)
+            this[RECENTS] = json.encodeToString(ListSerializer(String.serializer()), s.recentSearches)
         }
     }
 }

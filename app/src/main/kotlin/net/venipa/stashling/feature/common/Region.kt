@@ -3,7 +3,6 @@ package net.venipa.stashling.feature.common
 import kotlinx.coroutines.CancellationException
 import net.venipa.stashling.R
 import net.venipa.stashling.core.data.PerformerGender
-import net.venipa.stashling.core.stash.Performer
 import net.venipa.stashling.core.stash.SceneFilter
 import net.venipa.stashling.core.stash.StashDbApi
 import net.venipa.stashling.core.stash.TagFilter
@@ -42,6 +41,3 @@ fun PerformerGender.apiValue(): String? = when (this) {
     PerformerGender.MALE -> "MALE"
     PerformerGender.BOTH -> null
 }
-
-/** Client-side gender check for calls that take no gender (searchPerformers). */
-fun Performer.matches(gender: String?) = gender == null || this.gender.equals(gender, true)
