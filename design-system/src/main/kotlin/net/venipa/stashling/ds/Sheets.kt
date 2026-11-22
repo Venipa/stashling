@@ -3,6 +3,12 @@ package net.venipa.stashling.ds
 import androidx.activity.compose.PredictiveBackHandler
 import androidx.compose.animation.core.Animatable
 import androidx.compose.foundation.background
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.clip
+import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.ListItem
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -97,6 +103,40 @@ fun ConfirmSheet(
                 shape = concentricShape(SheetRadius, Space.L),
                 colors = if (destructive) ButtonDefaults.buttonColors(MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError) else ButtonDefaults.buttonColors(),
             ) { Text(confirmLabel) }
+        }
+    }
+}
+
+/** One row of an [ActionSheet]; [destructive] rows use the error colour (put them last). */
+data class SheetAction(
+    val label: String,
+    val icon: ImageVector,
+    val destructive: Boolean = false,
+    val onClick: () -> Unit,
+)
+
+/** Long-press / overflow actions: optional title, then the rows as one connected group concentric to the sheet. Each row dismisses first. */
+@Composable
+fun ActionSheet(
+    title: String?,
+    actions: List<SheetAction>,
+    onDismiss: () -> Unit,
+) = AppBottomSheet(onDismiss) {
+    Column(Modifier.padding(horizontal = Space.L).padding(bottom = Space.L).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(Space.S)) {
+        title?.let { Text(it, style = sheetTitle, maxLines = 2, overflow = TextOverflow.Ellipsis) }
+        Column(Modifier.fillMaxWidth().clip(concentricShape(SheetRadius, Space.L)), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            actions.forEach { a ->
+                val color = if (a.destructive) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface
+                ListItem(
+                    headlineContent = { Text(a.label, color = color) },
+                    modifier = Modifier.clip(RoundedCornerShape(4.dp)).clickable {
+                        onDismiss()
+                        a.onClick()
+                    },
+                    leadingContent = { Icon(a.icon, null, tint = color) },
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                )
+            }
         }
     }
 }

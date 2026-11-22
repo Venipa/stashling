@@ -6,6 +6,7 @@ import androidx.compose.animation.ContentTransform
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +22,9 @@ import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.compose.LocalLifecycleOwner
+import androidx.lifecycle.repeatOnLifecycle
 import androidx.lifecycle.viewmodel.navigation3.rememberViewModelStoreNavEntryDecorator
 import androidx.navigation3.runtime.NavKey
 import androidx.navigation3.runtime.entryProvider
@@ -33,7 +37,9 @@ import net.venipa.stashling.R
 import net.venipa.stashling.ds.DockTab
 import net.venipa.stashling.ds.GlassDock
 import net.venipa.stashling.ds.LocalGlass
+import net.venipa.stashling.ds.LoadingPill
 import net.venipa.stashling.ds.LocalReduceMotion
+import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TransitionSpecs
 import net.venipa.stashling.ds.backEnter
@@ -47,7 +53,9 @@ import net.venipa.stashling.ds.rememberGlassState
 import net.venipa.stashling.ds.sharedAxisXEnter
 import net.venipa.stashling.ds.sharedAxisXExit
 import net.venipa.stashling.feature.browse.BrowseScreen
+import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.feature.detail.PerformerDetailScreen
+import net.venipa.stashling.feature.downloads.DownloadsViewModel
 import net.venipa.stashling.feature.detail.SceneDetailScreen
 import net.venipa.stashling.feature.detail.StudioDetailScreen
 import net.venipa.stashling.feature.detail.TagDetailScreen
@@ -112,7 +120,12 @@ fun AppNav(
     var dockPx by remember { mutableIntStateOf(0) }
     // The target value, not animated: an animated inset would relayout the tab grid every frame of a transition.
     val dockInset = if (showDock) with(LocalDensity.current) { dockPx.toDp() } else 0.dp
-    val navigator = remember(backStack) { Navigator(push = { backStack.add(it) }, pop = { backStack.removeLastOrNull() }) }
+    val navigator = remember(backStack) { Navigator(push = { backStack.add(it) }, pop = { backStack.removeLastOrNull() }, tab = { goTab(it) }) }
+    // The one Whisparr queue poller (activity-scoped Downloads ViewModel): runs while the app is visible, feeds Downloads and the pill.
+    val downloads = tabViewModel { DownloadsViewModel(container) }
+    val lifecycle = LocalLifecycleOwner.current.lifecycle
+    LaunchedEffect(hasDownloads, lifecycle) { if (hasDownloads) lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { downloads.poll() } }
+    val sections by downloads.sections.collectAsState()
 
     Box(Modifier.fillMaxSize()) {
         CompositionLocalProvider(LocalNavigator provides navigator, LocalDockInset provides dockInset, LocalGlass provides glass) {
@@ -147,6 +160,16 @@ fun AppNav(
                 },
             )
         }
+        val active = sections.downloading.size
+        LoadingPill(
+            showDock && hasDownloads && active > 0,
+            Modifier.align(Alignment.BottomCenter).padding(bottom = dockInset + Space.S),
+            label = stringResource(R.string.library_downloading_pill, active, (sections.progress * 100).toInt()),
+            onClick = {
+                downloads.librarySegment.value = 1
+                goTab(LibraryRoute)
+            },
+        )
         AnimatedVisibility(
             showDock,
             Modifier.align(Alignment.BottomCenter),

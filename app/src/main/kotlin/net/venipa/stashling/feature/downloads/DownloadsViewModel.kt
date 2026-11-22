@@ -5,7 +5,12 @@ import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import net.venipa.stashling.AppContainer
 import net.venipa.stashling.core.whisparr.HistoryItem
@@ -14,6 +19,43 @@ import net.venipa.stashling.core.whisparr.WhisparrError
 import net.venipa.stashling.core.whisparr.WhisparrRepository
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.days
+
+/** Downloads list: queue and recent history merged into status groups, newest history first. */
+data class DownloadSections(
+    val downloading: List<QueueItem> = emptyList(),
+    val queued: List<QueueItem> = emptyList(),
+    val failed: List<QueueItem> = emptyList(),
+    /** Failures that already left the queue (Whisparr removes failed downloads), unless the scene was imported or queued again since. */
+    val failedHistory: List<HistoryItem> = emptyList(),
+    val imported: List<HistoryItem> = emptyList(),
+) {
+    /** Overall progress of [downloading], 0..1. */
+    val progress: Double get() = downloading.sumOf { it.size }.let { total -> if (total > 0) 1 - downloading.sumOf { it.sizeleft } / total else 0.0 }
+}
+
+private val FAILED_STATES = setOf("failed", "failedPending")
+private val WAITING = setOf("queued", "paused", "delay", "downloadClientUnavailable")
+
+fun downloadSections(
+    queue: List<QueueItem>,
+    history: List<HistoryItem>,
+): DownloadSections {
+    val failed = queue.filter { it.trackedDownloadState in FAILED_STATES || it.status == "failed" }
+    val rest = queue - failed.toSet()
+    val queuedIds = queue.mapNotNull { it.movieId }.toSet()
+    // history is newest first: a failure counts only if no import of the same scene came after it.
+    val failedHistory =
+        history.filterIndexed { i, h ->
+            h.eventType == "downloadFailed" && h.movieId !in queuedIds && history.take(i).none { it.movieId == h.movieId && it.eventType == "downloadFolderImported" }
+        }
+    return DownloadSections(
+        downloading = rest.filter { it.status !in WAITING },
+        queued = rest.filter { it.status in WAITING },
+        failed = failed,
+        failedHistory = failedHistory.distinctBy { it.movieId },
+        imported = history.filter { it.eventType == "downloadFolderImported" },
+    )
+}
 
 /** [items] null = first load still running. */
 data class ListUi<T>(
@@ -24,8 +66,8 @@ data class ListUi<T>(
 class DownloadsViewModel(
     private val container: AppContainer,
 ) : ViewModel() {
-    private val _tab = MutableStateFlow(0)
-    val tab: StateFlow<Int> = _tab.asStateFlow()
+    /** Library segment (0 Saved, 1 Downloads): here so the downloads pill on any tab can open Downloads. */
+    val librarySegment = MutableStateFlow(0)
 
     private val _queue = MutableStateFlow(ListUi<QueueItem>())
     val queue: StateFlow<ListUi<QueueItem>> = _queue.asStateFlow()
@@ -33,9 +75,9 @@ class DownloadsViewModel(
     private val _history = MutableStateFlow(ListUi<HistoryItem>())
     val history: StateFlow<ListUi<HistoryItem>> = _history.asStateFlow()
 
-    fun selectTab(i: Int) {
-        _tab.value = i
-    }
+    val sections: StateFlow<DownloadSections> =
+        combine(_queue, _history) { q, h -> downloadSections(q.items.orEmpty(), h.items.orEmpty()) }
+            .stateIn(viewModelScope, SharingStarted.Eagerly, DownloadSections())
 
     private val _refreshing = MutableStateFlow(false)
     val refreshing: StateFlow<Boolean> = _refreshing.asStateFlow()
@@ -51,15 +93,14 @@ class DownloadsViewModel(
         }
     }
 
-    /** While visible: the queue every 5 s while it has items, else 30 s; history on each idle tick. */
+    /** While the app is visible (one poller, started by the shell): the queue every 5 s while it has items, else 30 s; history every 6th tick. */
     suspend fun poll() {
         var tick = 0
         while (true) {
-            val repo = container.whisparr.value
-            if (repo != null) {
-                loadQueue(repo)
-                if (tick % HISTORY_EVERY == 0 || _history.value.items == null) loadHistory(repo)
-            }
+            // Cold start: the client is built a moment after the account loads; wait for it instead of a 30 s idle tick.
+            val repo = container.whisparr.value ?: container.whisparr.filterNotNull().first()
+            loadQueue(repo)
+            if (tick % HISTORY_EVERY == 0 || _history.value.items == null) loadHistory(repo)
             val active = !_queue.value.items.isNullOrEmpty()
             tick++
             delay(if (active) ACTIVE_MS else IDLE_MS)

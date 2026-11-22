@@ -10,6 +10,7 @@ import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxScope
@@ -88,13 +89,14 @@ fun SkeletonText(
     repeat(lines) { i -> SkeletonBox(Modifier.fillMaxWidth(if (i == lines - 1 && lines > 1) 0.6f else 1f).height(12.dp), CircleShape) }
 }
 
-/** Glass pill (tonal when glass is absent) with an expressive indicator; fades in only after ~400 ms so quick loads show no flash. */
+/** Glass pill (tonal when glass is absent) with an expressive indicator; fades in only after ~400 ms so quick loads show no flash. [onClick] makes it a button. */
 @OptIn(ExperimentalMaterial3ExpressiveApi::class)
 @Composable
 fun LoadingPill(
     visible: Boolean,
     modifier: Modifier = Modifier,
     label: String? = null,
+    onClick: (() -> Unit)? = null,
 ) {
     var shown by remember { mutableStateOf(false) }
     LaunchedEffect(visible) {
@@ -111,6 +113,7 @@ fun LoadingPill(
         Row(
             Modifier
                 .then(if (glass != null) Modifier.glass(glass, GlassRole.Button) else Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest))
+                .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
                 .semantics { contentDescription = name }
                 .padding(Space.S),
             horizontalArrangement = Arrangement.spacedBy(Space.S),

@@ -10,6 +10,8 @@ import androidx.navigation3.runtime.NavKey
 class Navigator(
     val push: (NavKey) -> Unit,
     val pop: () -> Unit,
+    /** Switch to a tab root (clears the stack). */
+    val tab: (NavKey) -> Unit = {},
 )
 
 val LocalNavigator = staticCompositionLocalOf<Navigator> { error("Navigator not provided") }

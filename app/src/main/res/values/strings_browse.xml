@@ -111,4 +111,36 @@
     <string name="saved_remove_title">Remove bookmark?</string>
     <string name="saved_remove_body">%1$s will be removed from Saved.</string>
     <string name="saved_remove">Remove</string>
+
+    <!-- Library -->
+    <string name="library_downloading_pill">%1$d downloading · %2$d%%</string>
+    <string name="library_bookmarks">Bookmarks</string>
+    <string name="library_stashdb_favorites">StashDB favorites</string>
+    <string name="library_browse">Browse</string>
+    <string name="library_selected">%1$d selected</string>
+    <string name="library_select">Select</string>
+    <string name="library_select_all">Select all</string>
+    <string name="library_clear_selection">Clear selection</string>
+    <string name="library_more">More actions</string>
+    <string name="library_remove">Remove from Library</string>
+    <plurals name="library_removed">
+        <item quantity="one">%1$d item removed</item>
+        <item quantity="other">%1$d items removed</item>
+    </plurals>
+    <string name="library_undo">Undo</string>
+    <string name="library_open_stashdb">Open on StashDB</string>
+    <string name="library_add_whisparr">Add to Whisparr</string>
+    <string name="library_added_whisparr">Added to Whisparr</string>
+    <string name="library_added_searching">Added to Whisparr, searching</string>
+    <string name="library_already_whisparr">Already in Whisparr</string>
+    <string name="library_whisparr_error">Whisparr: %1$s</string>
+    <string name="library_dl_downloading">Downloading · %1$d</string>
+    <string name="library_dl_queued">Queued · %1$d</string>
+    <string name="library_dl_failed">Failed · %1$d</string>
+    <string name="library_dl_imported">Imported · %1$d</string>
+    <string name="library_no_whisparr">Whisparr is not connected</string>
+    <string name="library_no_whisparr_body">Connect Whisparr to see downloads and add scenes from here.</string>
+    <string name="library_connect_whisparr">Connect Whisparr</string>
+    <string name="library_queue_empty">Queue is empty</string>
+    <string name="library_queue_empty_body">Scenes you add to Whisparr show up here while they download.</string>
 </resources>
