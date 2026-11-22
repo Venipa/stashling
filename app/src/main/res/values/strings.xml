@@ -79,6 +79,10 @@
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_system">System</string>
     <string name="settings_oled">OLED black</string>
+    <string name="settings_performers">Performers</string>
+    <string name="settings_performers_female">Female</string>
+    <string name="settings_performers_male">Male</string>
+    <string name="settings_performers_both">Both</string>
     <string name="settings_oled_body">Pure black backgrounds whenever the dark theme is active.</string>
     <string name="settings_dynamic">Dynamic colour</string>
     <string name="settings_dynamic_body">Use your wallpaper colours instead of the Stashling violet.</string>

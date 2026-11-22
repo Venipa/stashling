@@ -44,6 +44,9 @@ enum class ThemeMode { DARK, LIGHT, SYSTEM }
 
 enum class ListMode { CARDS, ROWS }
 
+/** Which performers lists show (setting); BOTH = no gender filter. */
+enum class PerformerGender { FEMALE, MALE, BOTH }
+
 /** The built-in "Default" preset (stored in the original keys, so existing values stay); [tagIds] = Whisparr tag ids. */
 data class WhisparrDefaults(val rootFolder: String?, val qualityProfileId: Int?, val monitor: String = "movieOnly", val searchOnAdd: Boolean = true, val tagIds: List<Int> = emptyList())
 
@@ -77,6 +80,7 @@ data class Settings(
     val appLock: Boolean = false,
     val appLockTimeoutSec: Int = 60,
     val sceneListMode: ListMode = ListMode.CARDS,
+    val performerGender: PerformerGender = PerformerGender.BOTH,
     val whisparr: WhisparrDefaults = WhisparrDefaults(null, null),
     val historyCursor: Long? = null,
     /** Custom presets, without Default. */

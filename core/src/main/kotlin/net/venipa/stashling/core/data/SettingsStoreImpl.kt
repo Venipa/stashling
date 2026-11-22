@@ -38,6 +38,7 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
         val LOCK = booleanPreferencesKey("app_lock")
         val LOCK_TIMEOUT = intPreferencesKey("app_lock_timeout_sec")
         val LIST_MODE = stringPreferencesKey("scene_list_mode")
+        val PERFORMER_GENDER = stringPreferencesKey("performer_gender")
         val W_ROOT = stringPreferencesKey("whisparr_root_folder")
         val W_PROFILE = intPreferencesKey("whisparr_quality_profile_id")
         val W_MONITOR = stringPreferencesKey("whisparr_monitor")
@@ -73,6 +74,7 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
                 appLock = this[LOCK] ?: d.appLock,
                 appLockTimeoutSec = this[LOCK_TIMEOUT] ?: d.appLockTimeoutSec,
                 sceneListMode = enum(LIST_MODE, d.sceneListMode),
+                performerGender = enum(PERFORMER_GENDER, d.performerGender),
                 whisparr =
                 WhisparrDefaults(
                     rootFolder = this[W_ROOT],
@@ -99,6 +101,7 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
             this[LOCK] = s.appLock
             this[LOCK_TIMEOUT] = s.appLockTimeoutSec
             this[LIST_MODE] = s.sceneListMode.name
+            this[PERFORMER_GENDER] = s.performerGender.name
             setOrRemove(W_ROOT, s.whisparr.rootFolder)
             setOrRemove(W_PROFILE, s.whisparr.qualityProfileId)
             this[W_MONITOR] = s.whisparr.monitor

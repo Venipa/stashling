@@ -4,16 +4,20 @@ import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -26,6 +30,7 @@ import androidx.compose.material3.ToggleButtonDefaults
 import androidx.compose.material3.ToggleButtonShapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.CornerRadius
@@ -33,11 +38,13 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 
 /**
  * The one segmented control of the app (credential choice, theme, Queue|History): M3 Expressive ButtonGroup of ToggleButtons
@@ -51,6 +58,8 @@ fun StashSegmented(
     selected: Int,
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
+    /** Optional icon per option, drawn above a smaller label (navigation-bar style) for 4+ or long options. */
+    icons: List<ImageVector>? = null,
 ) {
     val cs = MaterialTheme.colorScheme
     // Equal fixed widths and one shared height: selecting never shifts the layout. The selection is one indicator
@@ -89,6 +98,8 @@ fun StashSegmented(
                     onCheckedChange = { if (it) onSelect(i) },
                     modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp),
                     shapes = shapes,
+                    // 8dp sides (default 16) so four labels such as "Performers" fit one line on a phone.
+                    contentPadding = PaddingValues(horizontal = 8.dp),
                     colors =
                     ToggleButtonDefaults.colors(
                         containerColor = Color.Transparent,
@@ -96,7 +107,21 @@ fun StashSegmented(
                         checkedContainerColor = Color.Transparent,
                         checkedContentColor = cs.onPrimary,
                     ),
-                ) { Text(label, textAlign = TextAlign.Center) }
+                ) {
+                    // One line, shrinking to fit a narrow segment instead of wrapping.
+                    val style = if (icons != null) MaterialTheme.typography.labelMedium else MaterialTheme.typography.labelLarge
+                    val text = @Composable {
+                        Text(label, maxLines = 1, style = style, autoSize = TextAutoSize.StepBased(minFontSize = 10.sp, maxFontSize = style.fontSize))
+                    }
+                    if (icons != null) {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Icon(icons[i], null, Modifier.size(20.dp))
+                            text()
+                        }
+                    } else {
+                        text()
+                    }
+                }
             }
         }
     }

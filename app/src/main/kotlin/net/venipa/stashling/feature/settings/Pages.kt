@@ -33,6 +33,7 @@ import kotlinx.coroutines.withContext
 import net.venipa.stashling.BuildConfig
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
+import net.venipa.stashling.core.data.PerformerGender
 import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.data.ThemeMode
 import net.venipa.stashling.core.data.WhisparrDefaults
@@ -90,6 +91,14 @@ internal fun AppearancePage(
                 onClick = { dynAnchor.reveal { scope.launch { store.update { it.copy(dynamicColor = !it.dynamicColor) } } } },
             )
         }
+        SectionHeader(stringResource(R.string.settings_performers), Gutter)
+        val genders = PerformerGender.entries
+        StashSegmented(
+            listOf(R.string.settings_performers_female, R.string.settings_performers_male, R.string.settings_performers_both).map { stringResource(it) },
+            genders.indexOf(settings.performerGender),
+            { i -> scope.launch { store.update { it.copy(performerGender = genders[i]) } } },
+            Gutter,
+        )
     }
 }
 
