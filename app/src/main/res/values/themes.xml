@@ -1,0 +1,6 @@
+<resources>
+    <!-- Cold-start ground follows the system night mode (drawn before any code runs); MainActivity then applies the stored theme. -->
+    <style name="Theme.Stashling" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@android:color/white</item>
+    </style>
+</resources>

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Personal app: Whisparr may sit on a LAN host over http or behind a CA the user installed on the device.
+     Host names are user-entered, so this cannot be scoped per domain; StashDB is held to https in the client code. -->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+            <certificates src="user" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>
