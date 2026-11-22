@@ -44,6 +44,9 @@ interface WhisparrApi {
 
     suspend fun movieByStashId(stashId: String): List<WhisparrScene>
 
+    /** Whole library (GET movie): one call for the per-tile badges. */
+    suspend fun movies(): List<WhisparrScene>
+
     suspend fun movie(id: Int): WhisparrScene
 
     suspend fun addMovie(body: JsonObject): WhisparrScene
@@ -108,6 +111,8 @@ class KtorWhisparrApi(
     override suspend fun lookupScene(stashId: String): List<SearchResult> = get("lookup/scene") { parameter("term", "stash:$stashId") }
 
     override suspend fun movieByStashId(stashId: String): List<WhisparrScene> = get("movie") { parameter("stashId", stashId) }
+
+    override suspend fun movies(): List<WhisparrScene> = get("movie")
 
     override suspend fun movie(id: Int): WhisparrScene = get("movie/$id")
 

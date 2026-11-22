@@ -73,6 +73,15 @@ class AppContainer(context: Context) {
     val whisparr: StateFlow<WhisparrRepository?> = secrets.whisparr
         .map { account -> account?.let { WhisparrRepository(WhisparrClients.create(it), settings) } }
         .stateIn(appScope, SharingStarted.Eagerly, null)
+
+    /** stashId → badge for scene tiles; empty when Whisparr isn't connected. Refreshed by [refreshWhisparrIndex]. */
+    val whisparrIndex = kotlinx.coroutines.flow.MutableStateFlow<Map<String, net.venipa.stashling.core.whisparr.LibraryBadge>>(emptyMap())
+
+    /** Call on connect, while visible (with the downloads poller) and after add/search/grab; errors keep the last index. */
+    suspend fun refreshWhisparrIndex() {
+        val repo = whisparr.value ?: return run { whisparrIndex.value = emptyMap() }
+        runCatching { repo.libraryIndex() }.onSuccess { whisparrIndex.value = it }
+    }
     // --- end whisparr ---
 }
 

@@ -59,6 +59,18 @@ class WhisparrRepository(
         return grabbed
     }
 
+    /** Badge per StashDB scene id for list tiles: downloading (in queue) > downloaded (has file) > in library (wanted). Throws WhisparrError. */
+    suspend fun libraryIndex(): Map<String, LibraryBadge> = run {
+        val queued = api.queue().mapNotNullTo(HashSet()) { it.movieId }
+        api.movies().associate { m ->
+            m.foreignId to when {
+                m.id in queued -> LibraryBadge.DOWNLOADING
+                m.hasFile == true -> LibraryBadge.DOWNLOADED
+                else -> LibraryBadge.IN_LIBRARY
+            }
+        }
+    }
+
     /** The preset an add of a scene with these StashDB tag ids uses, and the rule that picked it (null = Default). */
     suspend fun resolvePreset(sceneTagIds: Collection<String>): Pair<WhisparrPreset, TagRule?> = settings.settings.first().resolvePreset(sceneTagIds)
 
@@ -202,3 +214,5 @@ internal fun addMovieBody(
                 },
         ),
 )
+
+enum class LibraryBadge { IN_LIBRARY, DOWNLOADING, DOWNLOADED }
