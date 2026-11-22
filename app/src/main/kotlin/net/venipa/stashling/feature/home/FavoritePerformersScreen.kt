@@ -89,7 +89,7 @@ fun FavoritePerformersScreen(
         },
     ) { padding ->
         val pad = PaddingValues(start = Space.L, top = padding.calculateTopPadding() + Space.S, end = Space.L, bottom = padding.calculateBottomPadding() + Space.L)
-        NameRail(vm.loader, st, st.items.isNotEmpty(), pad, vm.grid, { it.name }, { indexLetter(it.name, it.aliases) }) { p ->
+        NameRail(vm.loader, st, st.items.isNotEmpty(), pad, vm.grid, { it.id }, { it.name }, { indexLetter(it.name, it.aliases) }) { p ->
             PagedGrid(
                 st,
                 { it.id },

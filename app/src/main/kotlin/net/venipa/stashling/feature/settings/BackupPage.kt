@@ -103,14 +103,14 @@ internal fun BackupPage(onBack: () -> Unit) {
         if (uri == null) return@rememberLauncherForActivityResult
         scope.launch {
             error = try {
-                val text = withContext(Dispatchers.IO) {
-                    context.contentResolver.openInputStream(uri)!!.use { input ->
+                pending = withContext(Dispatchers.IO) {
+                    val text = context.contentResolver.openInputStream(uri)!!.use { input ->
                         val bytes = input.readNBytes(MAX_BYTES + 1)
                         if (bytes.size > MAX_BYTES) throw BackupException(BackupException.Reason.Invalid)
                         bytes.decodeToString()
                     }
+                    BackupCodec.decode(text)
                 }
-                pending = BackupCodec.decode(text)
                 importError = null
                 null
             } catch (e: CancellationException) {

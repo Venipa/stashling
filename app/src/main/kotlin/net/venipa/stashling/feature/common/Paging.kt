@@ -54,7 +54,7 @@ class PageLoader<T>(
 
     fun loadMore() {
         val s = _state.value
-        if (s.loading || !s.hasNext || s.error != null) return
+        if (s.loading || s.refreshing || !s.hasNext || s.error != null) return
         _state.update { it.copy(loading = true) }
         val next = page + 1
         job = scope.launch {

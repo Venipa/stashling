@@ -127,12 +127,14 @@ class WhisparrLive(
             try {
                 while (true) {
                     try {
-                        if (session(client)) backoff = MIN_BACKOFF_MS
+                        val started = TimeSource.Monotonic.markNow()
+                        // A server that accepts then drops at once would otherwise be hammered every 2 s.
+                        if (session(client) && started.elapsedNow().inWholeMilliseconds >= STABLE_MS) backoff = MIN_BACKOFF_MS
                     } catch (e: CancellationException) {
                         throw e
                     } catch (e: Exception) {
-                        // Class name only: Ktor/OkHttp messages can contain the URL.
-                        log("Whisparr live: disconnected (${e::class.simpleName})")
+                        // Fixed text: exception messages (and obfuscated class names) can carry the URL or nothing useful.
+                        log("Whisparr live: disconnected (error)")
                     }
                     delay(backoff)
                     backoff = (backoff * 2).coerceAtMost(MAX_BACKOFF_MS)
@@ -143,7 +145,7 @@ class WhisparrLive(
             }
         }
 
-    /** One connection until it ends; true if the handshake succeeded (resets the backoff). */
+    /** One connection until it ends; true if the handshake succeeded (resets the backoff when it stayed up [STABLE_MS]). */
     private suspend fun ProducerScope<WhisparrEvent>.session(client: HttpClient): Boolean {
         val base = account.baseUrl
         val negotiate = client.post("$base/signalr/messages/negotiate?negotiateVersion=1")
@@ -219,5 +221,6 @@ class WhisparrLive(
         const val READ_TIMEOUT_MS = 35_000L
         const val MIN_BACKOFF_MS = 2_000L
         const val MAX_BACKOFF_MS = 300_000L
+        const val STABLE_MS = 30_000L
     }
 }

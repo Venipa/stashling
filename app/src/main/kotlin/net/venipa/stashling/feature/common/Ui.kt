@@ -43,7 +43,9 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.State
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -507,8 +509,8 @@ fun ScenesGrid(
     onRefresh: (() -> Unit)? = null,
     showItems: Boolean = true,
 ) {
-    // One collector per grid for the Whisparr tile badges (stashId -> state).
-    val badges by LocalAppContainer.current.whisparrIndex.collectAsState()
+    // One collector per grid for the Whisparr tile badges (stashId -> state); read per tile, so a change recomposes only its tiles.
+    val badges = LocalAppContainer.current.whisparrIndex.collectAsState()
     ScenesPagedGrid(state, mode, contentPadding, onMore, onRetry, onOpen, modifier, gridState, header, onRefresh, badges, showItems)
 }
 
@@ -524,7 +526,7 @@ private fun ScenesPagedGrid(
     gridState: LazyGridState,
     header: (LazyGridScope.() -> Unit)?,
     onRefresh: (() -> Unit)?,
-    badges: Map<String, LibraryBadge>,
+    badges: State<Map<String, LibraryBadge>>,
     showItems: Boolean,
 ) = PagedGrid(
     state,
@@ -545,9 +547,9 @@ private fun ScenesPagedGrid(
     val shape = if (mode == ListMode.CARDS) RoundedCornerShape(CardOuter) else groupShape(i, state.items.size)
     // Long-press menu and swipe actions on every scene list (Library uses its own rows, so neither there).
     val menu = rememberSceneMenu(s, shape)
+    val badge by remember(s.id, badges) { derivedStateOf { badges.value[s.id] } }
     val tile: @Composable () -> Unit = {
         val m = menu.modifier.containerTransform(sceneTransformKey(s.id), shape)
-        val badge = badges[s.id]
         if (mode == ListMode.CARDS) SceneCardTile(s, m, menu.open, badge) { onOpen(s.id) } else SceneRow(s, i, state.items.size, m, menu.open, badge) { onOpen(s.id) }
     }
     SwipeableScene(s, shape, tile)

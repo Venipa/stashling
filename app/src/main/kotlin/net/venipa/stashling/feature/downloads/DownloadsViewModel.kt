@@ -107,8 +107,11 @@ class DownloadsViewModel(
             val repo = container.whisparr.value ?: container.whisparr.filterNotNull().first()
             loadQueue(repo)
             if (woken || tick % HISTORY_EVERY == 0 || _history.value.items == null) loadHistory(repo)
-            // Tile badges: the index is a full library call, so at most once a minute (first tick = on connect); live events refresh it themselves.
-            if (System.currentTimeMillis() - indexAt >= INDEX_MS) {
+            // Tile badges: DOWNLOADING straight from the queue; the library index (a full, heavy call) on connect, when a download
+            // leaves the queue (imported/removed), else every 10 min; movie/moviefile events refresh it too (AppContainer).
+            val wasQueued = container.queuedStashIds.value
+            _queue.value.items?.let { q -> container.queuedStashIds.value = q.flatMapTo(HashSet()) { listOfNotNull(it.movie?.stashId, it.movie?.foreignId) } }
+            if (System.currentTimeMillis() - indexAt >= INDEX_MS || !container.queuedStashIds.value.containsAll(wasQueued)) {
                 container.refreshWhisparrIndex()
                 indexAt = System.currentTimeMillis()
             }
@@ -163,7 +166,7 @@ class DownloadsViewModel(
     private companion object {
         const val ACTIVE_MS = 3_000L
         const val IDLE_MS = 10_000L
-        const val INDEX_MS = 60_000L
+        const val INDEX_MS = 600_000L
         const val EVENT_SETTLE_MS = 1_000L
         const val HISTORY_EVERY = 6
         const val HISTORY_DAYS = 14

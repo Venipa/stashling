@@ -36,6 +36,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -387,9 +388,11 @@ private fun SavedItem(
     val scale by animateFloatAsState(if (selected) 0.94f else 1f, label = "selected")
     val shape = if (rows) groupShape(index, count) else RoundedCornerShape(16.dp)
     val selectLabel = stringResource(R.string.library_select)
-    val badges by LocalAppContainer.current.whisparrIndex.collectAsState()
+    val badges = LocalAppContainer.current.whisparrIndex.collectAsState()
+    // Read in derivedStateOf: only this tile's badge change recomposes it, not every index update.
+    val indexed by remember(b.stashId, badges) { derivedStateOf { badges.value[b.stashId] } }
     // The select mark takes the card's top-end corner while selecting.
-    val badge = if (b.kind == BookmarkKind.SCENE && !selecting) badges[b.stashId] else null
+    val badge = if (b.kind == BookmarkKind.SCENE && !selecting) indexed else null
     Box(
         Modifier
             .graphicsLayer {

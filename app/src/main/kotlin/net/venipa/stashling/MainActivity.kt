@@ -16,7 +16,6 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
-import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.data.ThemeMode
 import net.venipa.stashling.ds.ProvideStashHaptics
 import net.venipa.stashling.ds.RevealingStashlingTheme
@@ -36,7 +35,8 @@ class MainActivity : FragmentActivity() {
         lifecycle.addObserver(lock)
         if (savedInstanceState == null) readDeepLink(intent)
         setContent {
-            val settings by container.settings.settings.collectAsState(Settings())
+            // Null until DataStore loads: keep the window background (system splash) instead of drawing defaults first.
+            val settings = container.settingsState.collectAsState().value ?: return@setContent
             // FLAG_SECURE: no screenshots, blank recents.
             LaunchedEffect(settings.secureScreen) {
                 if (settings.secureScreen) window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE) else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)

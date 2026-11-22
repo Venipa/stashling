@@ -41,7 +41,7 @@ import kotlin.math.hypot
 class ThemeRevealState {
     internal var origin: Offset? = null
 
-    /** Records [origin] (null = screen centre), then runs [change] (the settings write). */
+    /** Records [origin] (null = no animation), then runs [change] (the settings write). */
     fun reveal(
         origin: Offset?,
         change: () -> Unit,
@@ -99,7 +99,8 @@ private const val REVEAL_MS = 450 // long1
  * [StashlingTheme] that reveals a theme change with a circle. The theme drawn lags the settings: when the resolved look
  * changes (so an async DataStore write is simply waited for), the frame as last drawn is kept as a bitmap, the new
  * theme goes underneath, and the old frame is drawn outside a circle that grows from the control
- * ([ThemeRevealState.reveal]) to the farthest corner. System bar icons flip when it ends. Reduced motion swaps at once.
+ * ([ThemeRevealState.reveal]) to the farthest corner. System bar icons flip when it ends. Reduced motion, and any change
+ * not started by [ThemeRevealState.reveal] with an origin, swaps at once.
  * A second change mid-reveal finishes the first at once (about a frame of the middle theme), then grows again.
  */
 @Composable
@@ -139,7 +140,8 @@ fun RevealingStashlingTheme(
                     val from = state.origin
                     state.origin = null
                     if (next == shown) return@collectLatest
-                    if (reduce || size.width <= 0f || size.height <= 0f) {
+                    // Only a user change (reveal() with an origin) animates; system dark-mode flips etc. swap at once.
+                    if (reduce || from == null || size.width <= 0f || size.height <= 0f) {
                         shown = next
                         return@collectLatest
                     }
@@ -157,7 +159,7 @@ fun RevealingStashlingTheme(
                         return@collectLatest
                     }
                     try {
-                        origin = from ?: Offset(size.width / 2, size.height / 2)
+                        origin = from
                         radius = revealRadius(origin, size)
                         progress.snapTo(0f)
                         barsDark = shown.dark

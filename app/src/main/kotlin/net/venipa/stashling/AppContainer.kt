@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
@@ -19,6 +20,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import net.venipa.stashling.core.data.BookmarkRepository
 import net.venipa.stashling.core.data.HiddenIds
 import net.venipa.stashling.core.data.HiddenRepository
@@ -32,6 +34,7 @@ import net.venipa.stashling.core.data.StashlingDatabase
 import net.venipa.stashling.core.stash.CachingStashDbApi
 import net.venipa.stashling.core.stash.StashDbClient
 import net.venipa.stashling.core.stash.newStashHttpClient
+import net.venipa.stashling.core.whisparr.LibraryBadge
 import net.venipa.stashling.core.whisparr.WhisparrClients
 import net.venipa.stashling.core.whisparr.WhisparrRepository
 import net.venipa.stashling.feature.common.apiValue
@@ -82,16 +85,30 @@ class AppContainer(context: Context) {
         .map { account -> account?.let { WhisparrRepository(WhisparrClients.create(it), settings) } }
         .stateIn(appScope, SharingStarted.Eagerly, null)
 
-    /** stashId → badge for scene tiles; empty when Whisparr isn't connected. Refreshed by [refreshWhisparrIndex]. */
-    val whisparrIndex = kotlinx.coroutines.flow.MutableStateFlow<Map<String, net.venipa.stashling.core.whisparr.LibraryBadge>>(emptyMap())
+    // Library part of the tile badges (in library / downloaded); a full library call, so refreshed rarely (see [refreshWhisparrIndex]).
+    private val libraryBadges = kotlinx.coroutines.flow.MutableStateFlow<Map<String, LibraryBadge>>(emptyMap())
 
-    /** Call on connect, while visible (with the downloads poller) and after add/search/grab; errors keep the last index. */
+    /** StashDB ids of queued scenes: set by the downloads poller from the queue it already fetches every 3 s. */
+    val queuedStashIds = kotlinx.coroutines.flow.MutableStateFlow<Set<String>>(emptySet())
+
+    /** stashId → badge for scene tiles (library + live DOWNLOADING overlay); empty when Whisparr isn't connected. */
+    val whisparrIndex: StateFlow<Map<String, LibraryBadge>> =
+        combine(libraryBadges, queuedStashIds) { lib, queued -> if (queued.isEmpty()) lib else lib + queued.associateWith { LibraryBadge.DOWNLOADING } }
+            .stateIn(appScope, SharingStarted.Eagerly, emptyMap())
+
+    /**
+     * Full library index: on connect, on movie/moviefile events, after own add/search/grab, when a download leaves the queue,
+     * and every 10 min by the poller. Decoded off the main thread; errors keep the last index.
+     */
     suspend fun refreshWhisparrIndex() {
-        val repo = whisparr.value ?: return run { whisparrIndex.value = emptyMap() }
-        runCatching { repo.libraryIndex() }
-            .onSuccess { whisparrIndex.value = it }
+        val repo = whisparr.value ?: return run {
+            libraryBadges.value = emptyMap()
+            queuedStashIds.value = emptySet()
+        }
+        runCatching { withContext(Dispatchers.Default) { repo.libraryIndex() } }
+            .onSuccess { libraryBadges.value = it }
             // Diagnosable without leaking anything: error type + Whisparr's message only.
-            .onFailure { System.err.println("Whisparr index failed: ${it::class.simpleName}: ${it.message}") }
+            .onFailure { if (it is kotlinx.coroutines.CancellationException) throw it else System.err.println("Whisparr index failed: ${it::class.simpleName}: ${it.message}") }
     }
 
     // Live updates (SignalR) while the app is visible; polls slow down to a fallback while connected.
@@ -104,10 +121,11 @@ class AppContainer(context: Context) {
 
     val whisparrEvents = MutableSharedFlow<net.venipa.stashling.core.whisparr.WhisparrEvent>(extraBufferCapacity = 64, onBufferOverflow = BufferOverflow.DROP_OLDEST)
 
-    /** Run while the app is visible: one hub connection; queue/movie events refresh the tile index (debounced 1 s). */
+    /** Run while the app is visible: one hub connection; movie/moviefile events refresh the tile index (debounced 5 s). Queue events go to the 3 s poller. */
     @OptIn(kotlinx.coroutines.FlowPreview::class)
     suspend fun runWhisparrLive(): Unit = coroutineScope {
-        launch { whisparrEvents.filter { it.name == "queue" || it.name == "movie" }.debounce(1_000).collect { refreshWhisparrIndex() } }
+        // 5 s: imports and bulk edits arrive as bursts of movie/moviefile events; each refresh decodes the whole library.
+        launch { whisparrEvents.filter { it.name == "movie" || it.name == "moviefile" }.debounce(5_000).collect { refreshWhisparrIndex() } }
         whisparrLive.collectLatest { live -> live?.events?.collect { whisparrEvents.emit(it) } }
     }
     // --- end whisparr ---

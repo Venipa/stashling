@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.requiredSize
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -28,8 +29,15 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.CustomAccessibilityAction
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.customActions
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.Job
@@ -65,6 +73,16 @@ fun <T> letterPositions(
 
 /** Width of the rail; lists add it to their end padding so it never covers a card. */
 val AlphabetRailWidth = 28.dp
+
+/** Touch width of the rail (≥ 40dp): the extra reaches over the content-side gap, letters stay where they are. */
+private val RailTouchWidth = 40.dp
+
+/** Measures [extra] wider than the slot and hangs the excess off the start side (mirrored in RTL), so layout doesn't change. */
+private fun Modifier.widenTouchStart(extra: Dp): Modifier = layout { m, c ->
+    val e = extra.roundToPx()
+    val p = m.measure(c.copy(minWidth = c.maxWidth + e, maxWidth = c.maxWidth + e))
+    layout(c.maxWidth, p.height) { p.placeRelative(-e, 0) }
+}
 
 /**
  * Vertical letter index on the end edge (start in RTL): tap or drag to jump. Letters missing from [positions] are dimmed and
@@ -119,10 +137,24 @@ fun AlphabetRail(
         }
     }
 
+    val railLabel = stringResource(R.string.ds_alphabet_index)
+    val jumpLabel = stringResource(R.string.ds_jump_to_letter)
     Box(modifier.width(AlphabetRailWidth).fillMaxHeight()) {
         Column(
             Modifier
                 .fillMaxSize()
+                .widenTouchStart(RailTouchWidth - AlphabetRailWidth)
+                .semantics {
+                    contentDescription = railLabel
+                    // TalkBack can't drag the rail: one action per live letter.
+                    customActions = INDEX_LETTERS.filter { seekBy != null || it in present }.map { l ->
+                        CustomAccessibilityAction(jumpLabel.format(l.toString())) {
+                            val s = seekBy
+                            scope.launch { if (s != null) s(l) else present[l]?.let { jump(it) } }
+                            true
+                        }
+                    }
+                }
                 .onSizeChanged { height = it.height.coerceAtLeast(1) }
                 .pointerInput(Unit) {
                     awaitEachGesture {
@@ -134,7 +166,7 @@ fun AlphabetRail(
                         } while (e.changes.any { it.pressed })
                         active = null
                     }
-                },
+                }.padding(start = RailTouchWidth - AlphabetRailWidth),
             verticalArrangement = Arrangement.SpaceEvenly,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {

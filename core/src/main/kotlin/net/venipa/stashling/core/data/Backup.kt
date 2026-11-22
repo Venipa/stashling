@@ -112,6 +112,8 @@ interface BackupDao {
     }
 }
 
+private val LOCK_TIMEOUTS = setOf(0, 30, 60, 300)
+
 class BackupRepository(
     private val dao: BackupDao,
     private val bookmarks: BookmarkRepository,
@@ -136,7 +138,12 @@ class BackupRepository(
             r.hidden.map { HiddenEntity(it.kind, it.stashId, it.name, it.imageUrl, it.hiddenAt) },
         )
         settings.update { cur ->
-            r.settings.copy(historyCursor = cur.historyCursor, appLock = if (allowLock) r.settings.appLock else cur.appLock)
+            r.settings.copy(
+                historyCursor = cur.historyCursor,
+                appLock = if (allowLock) r.settings.appLock else cur.appLock,
+                // Untrusted file: only the timeouts the settings page offers, else keep the local one.
+                appLockTimeoutSec = r.settings.appLockTimeoutSec.takeIf { it in LOCK_TIMEOUTS } ?: cur.appLockTimeoutSec,
+            )
         }
         if (accounts) {
             backup.accounts?.whisparr?.let { secrets.setWhisparr(it) }

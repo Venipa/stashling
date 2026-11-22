@@ -5,10 +5,8 @@ import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
-import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
@@ -220,7 +218,7 @@ private fun DockTabItem(
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         Box(Modifier.size(ShapeSize), contentAlignment = Alignment.Center) { Icon(tab.icon, tab.label.takeIf { compact }, Modifier.height(22.dp), tint = color) }
-        AnimatedVisibility(!compact, enter = fadeIn(motion.defaultEffectsSpec()) + expandVertically(motion.defaultEffectsSpec()), exit = fadeOut(motion.defaultEffectsSpec()) + shrinkVertically(motion.defaultEffectsSpec())) {
+        AnimatedVisibility(!compact, enter = fadeIn(motion.defaultEffectsSpec()), exit = fadeOut(motion.defaultEffectsSpec())) {
             Text(tab.label, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
     }

@@ -5,4 +5,6 @@
     <string name="ds_retry">Retry</string>
     <string name="ds_load_more_failed">Could not load more</string>
     <string name="ds_loading">Loading</string>
+    <string name="ds_alphabet_index">Alphabet index</string>
+    <string name="ds_jump_to_letter">Jump to %1$s</string>
 </resources>

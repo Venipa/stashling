@@ -67,6 +67,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.filterNotNull
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.withTimeoutOrNull
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.core.stash.Favorites
@@ -344,7 +347,7 @@ private fun Results(
             // Fuzzy search (query, default filters) is relevance order: no rail there.
             val fuzzy = q.isNotBlank() && f.performer.copy(gender = null) == BrowsePerformers
             val byName = f.performer.sort == PerformerSort.NAME && f.performer.direction == SortDirection.ASC && !fuzzy
-            NameRail(vm.performers, st, byName, padding, grid, { it.name }, { indexLetter(it.name, it.aliases) }) { padding ->
+            NameRail(vm.performers, st, byName, padding, grid, { it.id }, { it.name }, { indexLetter(it.name, it.aliases) }) { padding ->
                 val traits: (LazyGridScope.() -> Unit)? =
                     if (f.performer.traits.isNotEmpty() || f.performer.gender != null) {
                         { fullSpan("traits") { TraitChips(f.performer) { next -> vm.update { it.copy(performer = next) } } } }
@@ -362,7 +365,7 @@ private fun Results(
         // 6B: list rows, logo (contained) + name + parent studio.
         BrowseKind.Studios -> {
             val st by vm.studios.state.collectAsState()
-            NameRail(vm.studios, st, f.studio.sort == NameSort.NAME && f.studio.direction == SortDirection.ASC, padding, grid, { it.name }, { indexLetter(it.name, it.aliases) }) { padding ->
+            NameRail(vm.studios, st, f.studio.sort == NameSort.NAME && f.studio.direction == SortDirection.ASC, padding, grid, { it.id }, { it.name }, { indexLetter(it.name, it.aliases) }) { padding ->
                 PagedGrid(st, { it.id }, GridCells.Fixed(1), padding, vm::loadMore, vm::retry, empty, gridState = grid, spacing = 2.dp, onRefresh = vm::refresh, skeleton = { i, n -> SceneRowSkeleton(i, n) }) { i, s ->
                     MediaRow(s.name, s.parent?.name, s.images.firstOrNull()?.sized(300), i, st.items.size, { onOpenStudio(s.id) }, scale = ContentScale.Fit)
                 }
@@ -416,6 +419,7 @@ internal fun <T> NameRail(
     byName: Boolean,
     padding: PaddingValues,
     grid: LazyGridState,
+    key: (T) -> Any,
     name: (T) -> String,
     letter: (T) -> Char,
     content: @Composable (PaddingValues) -> Unit,
@@ -425,7 +429,11 @@ internal fun <T> NameRail(
         if (st.hasPrevious) snapshotFlow { grid.firstVisibleItemIndex <= 4 }.filter { it }.collect { loader.loadPrevious() }
     }
     val items by rememberUpdatedState(st.items)
-    val current by remember(grid) { derivedStateOf { items.getOrNull(grid.firstVisibleItemIndex)?.let(letter) } }
+    // Grid key → item index: the grid also holds leading entries (traits header, "previous" footer), so map by key, not index.
+    val keyIndex by rememberUpdatedState(remember(st.items) { st.items.withIndex().associate { (i, t) -> key(t) to i } })
+    val current by remember(grid) {
+        derivedStateOf { grid.layoutInfo.visibleItemsInfo.firstNotNullOfOrNull { keyIndex[it.key] }?.let { items.getOrNull(it) }?.let(letter) }
+    }
     Box(Modifier.fillMaxSize()) {
         content(if (byName) padding.withRail() else padding)
         if (byName) {
@@ -435,7 +443,13 @@ internal fun <T> NameRail(
                 Modifier.align(Alignment.TopEnd).padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()),
                 seek = { l ->
                     try {
-                        grid.scrollToItem(loader.seekLetter(l, name))
+                        val i = loader.seekLetter(l, name)
+                        // Leading entries once the new page is laid out (grid index − item index of a visible item).
+                        val lead =
+                            withTimeoutOrNull(1_000) {
+                                snapshotFlow { grid.layoutInfo.visibleItemsInfo.firstNotNullOfOrNull { info -> keyIndex[info.key]?.let { info.index - it } } }.filterNotNull().first()
+                            } ?: 0
+                        grid.scrollToItem(i + lead)
                     } catch (e: CancellationException) {
                         throw e
                     } catch (_: Exception) {

@@ -3,6 +3,7 @@ package net.venipa.stashling.feature.detail.whisparr
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -129,9 +130,12 @@ class WhisparrPanelViewModel(
             // Live (SignalR): this scene's movie/command events or any queue change wake it; the timer is the fallback.
             // SignalR alone wasn't reliable — always poll (3 s active / 10 s idle); events only wake it sooner.
             val wait = if (active) ACTIVE_MS else IDLE_MS
-            withTimeoutOrNull(wait) {
-                merge(_state.filter { isActive(it) != active }, container.whisparrEvents.filter { concerns(it) }, container.whisparrLiveConnected.drop(1)).first()
-            }
+            val woke =
+                withTimeoutOrNull(wait) {
+                    merge(_state.filter { isActive(it) != active }, container.whisparrEvents.filter { concerns(it) }, container.whisparrLiveConnected.drop(1)).first()
+                }
+            // Queue events come in bursts (every progress tick): one refresh per burst.
+            if (woke is WhisparrEvent) delay(EVENT_SETTLE_MS)
         }
     }
 
@@ -271,5 +275,6 @@ class WhisparrPanelViewModel(
     private companion object {
         const val ACTIVE_MS = 3_000L
         const val IDLE_MS = 10_000L
+        const val EVENT_SETTLE_MS = 1_000L
     }
 }
