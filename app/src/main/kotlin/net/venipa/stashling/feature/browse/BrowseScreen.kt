@@ -99,6 +99,7 @@ import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashFilterChip
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
+import net.venipa.stashling.ds.blockPointerPassThrough
 import net.venipa.stashling.ds.fieldColors
 import net.venipa.stashling.ds.indexLetter
 import net.venipa.stashling.ds.letterPositions
@@ -492,7 +493,7 @@ private fun AzTags(
 
                     else -> groups.forEach { (l, g) ->
                         stickyHeader(key = "h:$l") {
-                            Text(l.toString(), Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = Space.Xs, vertical = Space.S), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                            Text(l.toString(), Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).blockPointerPassThrough().padding(horizontal = Space.Xs, vertical = Space.S), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
                         }
                         itemsIndexed(g, key = { _, t -> t.id }) { i, t -> TagRow(t, i, g.size) { onOpenTag(t.id) } }
                     }

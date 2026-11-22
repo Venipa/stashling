@@ -113,7 +113,7 @@ fun LoadingPill(
         val name = label ?: stringResource(R.string.ds_loading)
         Row(
             Modifier
-                .then(if (glass != null) Modifier.glass(glass, GlassRole.Button) else Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest))
+                .then(if (glass != null) Modifier.glass(glass, GlassRole.Button) else Modifier.clip(CircleShape).background(MaterialTheme.colorScheme.surfaceContainerHighest).blockPointerPassThrough())
                 .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier)
                 .semantics { contentDescription = name }
                 .padding(Space.S),

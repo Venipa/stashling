@@ -84,6 +84,7 @@ import net.venipa.stashling.ds.StashSwitch
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.StatusPill
 import net.venipa.stashling.ds.TonalCard
+import net.venipa.stashling.ds.blockPointerPassThrough
 import net.venipa.stashling.ds.concentric
 import net.venipa.stashling.ds.concentricShape
 import net.venipa.stashling.ds.glass
@@ -159,7 +160,7 @@ fun WhisparrBar(
     val overflow = rest + listOfNotNull(open)
     val haptic = LocalStashHaptics.current
     val shape = RoundedCornerShape(GlassCorner)
-    val surface = if (overImage) Modifier.glass(glass, GlassRole.Dock) else Modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh)
+    val surface = if (overImage) Modifier.glass(glass, GlassRole.Dock) else Modifier.clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh).blockPointerPassThrough()
     Column(
         modifier
             .onSizeChanged { onHeight(it.height) }

@@ -55,6 +55,7 @@ import net.venipa.stashling.core.stash.Image
 import net.venipa.stashling.ds.GlassIconButton
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
+import net.venipa.stashling.ds.blockPointerPassThrough
 import net.venipa.stashling.ds.glassSource
 import net.venipa.stashling.ds.rememberGlassState
 import net.venipa.stashling.feature.common.Load
@@ -118,7 +119,7 @@ private fun Pager(
             GlassIconButton(glass, StashlingIcons.Back, stringResource(R.string.detail_back), onBack)
             Text(
                 stringResource(R.string.gallery_counter, pager.currentPage + 1, images.size),
-                Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.6f)).padding(horizontal = Space.M, vertical = Space.S),
+                Modifier.clip(CircleShape).background(Color.Black.copy(alpha = 0.6f)).blockPointerPassThrough().padding(horizontal = Space.M, vertical = Space.S),
                 color = Color.White,
                 style = MaterialTheme.typography.labelLarge,
             )

@@ -54,6 +54,7 @@ fun rememberCollapsingHeader(): CollapsingHeaderState = remember { CollapsingHea
 fun Modifier.collapsingHeader(state: CollapsingHeaderState): Modifier = onSizeChanged { state.height = it.height.toFloat() }
     .graphicsLayer { translationY = state.offset.coerceAtLeast(-state.height) }
     .background(MaterialTheme.colorScheme.surface)
+    .blockPointerPassThrough()
 
 /** The topBar of a Scaffold that collapses; the status-bar strip stays solid so content never shows under the clock. */
 @Composable
@@ -61,6 +62,6 @@ fun CollapsingHeader(
     state: CollapsingHeaderState,
     content: @Composable ColumnScope.() -> Unit,
 ) = Box {
-    Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.surface))
+    Box(Modifier.fillMaxWidth().windowInsetsTopHeight(WindowInsets.statusBars).background(MaterialTheme.colorScheme.surface).blockPointerPassThrough())
     Column(Modifier.collapsingHeader(state), content = content)
 }

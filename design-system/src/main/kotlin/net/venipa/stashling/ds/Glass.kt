@@ -7,6 +7,8 @@ import android.content.Intent
 import android.content.IntentFilter
 import android.os.PowerManager
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
@@ -24,6 +26,7 @@ import androidx.compose.ui.graphics.ColorFilter
 import androidx.compose.ui.graphics.ColorMatrix
 import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import dev.chrisbanes.haze.HazeInput
@@ -168,9 +171,17 @@ fun Modifier.glass(
     val dark = LocalDarkTheme.current
     val styles = if (dark) state.darkStyles else state.lightStyles
     return clip(shape)
+        .blockPointerPassThrough()
         .hazeBlur(HazeInput.Sources(state.haze), styles.getValue(role))
         .then(if (role != GlassRole.Dock) Modifier else Modifier.border(1.dp, (if (dark) Color.White else Color.Black).copy(alpha = 0.10f), shape))
 }
+
+/**
+ * Makes a floating layer opaque to touch: being hit-tested stops taps, long-presses and drags from reaching siblings drawn under it,
+ * while its own children still handle them first. Only the down is consumed (so ancestors' tap detectors skip it); consuming moves
+ * would cancel the children's clicks and scrolls, whose detectors check for consumed moves. No semantics, so TalkBack is unaffected.
+ */
+fun Modifier.blockPointerPassThrough(): Modifier = pointerInput(Unit) { awaitEachGesture { awaitFirstDown(requireUnconsumed = false).consume() } }
 
 /** The app's glass state for floating pieces that are not given one (loading pill); null = tonal fallback. */
 val LocalGlass = androidx.compose.runtime.staticCompositionLocalOf<GlassState?> { null }

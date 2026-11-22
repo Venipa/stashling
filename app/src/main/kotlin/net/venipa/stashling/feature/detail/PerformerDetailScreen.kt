@@ -76,6 +76,7 @@ import net.venipa.stashling.ds.StashFilterChip
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
+import net.venipa.stashling.ds.blockPointerPassThrough
 import net.venipa.stashling.ds.concentricShape
 import net.venipa.stashling.ds.groupItemShape
 import net.venipa.stashling.feature.browse.BrowseViewModel
@@ -255,7 +256,7 @@ fun PerformerDetailScreen(
                             listOf(stringResource(R.string.detail_scenes_n, p.sceneCount), stringResource(R.string.detail_about)),
                             tab,
                             { tab = it },
-                            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(vertical = Space.S),
+                            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).blockPointerPassThrough().padding(vertical = Space.S),
                         )
                     }
                     if (tab == 1) {

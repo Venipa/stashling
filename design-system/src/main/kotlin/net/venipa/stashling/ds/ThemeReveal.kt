@@ -180,7 +180,11 @@ fun RevealingStashlingTheme(
                     val circle = Path().apply { addOval(Rect(origin, progress.value * radius)) }
                     clipPath(circle, ClipOp.Difference) { drawImage(old) }
                 },
-            ) { content() }
+            ) {
+                content()
+                // The old frame is only drawn: block input to the new theme underneath until the circle has grown.
+                if (snapshot != null) Box(Modifier.matchParentSize().blockPointerPassThrough())
+            }
         }
     }
 }
