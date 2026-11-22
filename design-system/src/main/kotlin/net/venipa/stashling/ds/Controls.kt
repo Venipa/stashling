@@ -29,14 +29,16 @@ import androidx.compose.material3.ToggleButtonShapes
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Shape
-import androidx.compose.ui.layout.layout
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.unit.Constraints
+import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
-import kotlin.math.roundToInt
 
 /**
  * The one segmented control of the app (credential choice, theme, Queue|History): M3 Expressive ButtonGroup of ToggleButtons
@@ -65,19 +67,22 @@ fun StashSegmented(
             .background(cs.surfaceContainerHigh, RoundedCornerShape(SegmentRadius + SegmentPad))
             .padding(SegmentPad),
     ) {
-        Box(
+        val indicator = cs.primary
+        // Drawn, not measured: works under intrinsic/animated measurement where the height can be unbounded.
+        Row(
             Modifier
-                .matchParentSize()
-                .layout { measurable, constraints ->
-                    val gap = SegmentGap.roundToPx()
-                    val w = (constraints.maxWidth - gap * (count - 1)) / count
-                    val placeable = measurable.measure(Constraints.fixed(w, constraints.maxHeight))
-                    layout(constraints.maxWidth, constraints.maxHeight) {
-                        placeable.placeRelative((position * (w + gap)).roundToInt(), 0)
-                    }
-                }.background(cs.primary, buttonShape),
-        )
-        Row(Modifier.fillMaxWidth().selectableGroup(), horizontalArrangement = Arrangement.spacedBy(SegmentGap)) {
+                .fillMaxWidth()
+                .selectableGroup()
+                .drawBehind {
+                    val gap = SegmentGap.toPx()
+                    val w = (size.width - gap * (count - 1)) / count
+                    val r = SegmentRadius.toPx()
+                    val x = position * (w + gap)
+                    val left = if (layoutDirection == LayoutDirection.Rtl) size.width - x - w else x
+                    drawRoundRect(indicator, Offset(left, 0f), Size(w, size.height), CornerRadius(r, r))
+                },
+            horizontalArrangement = Arrangement.spacedBy(SegmentGap),
+        ) {
             options.forEachIndexed { i, label ->
                 ToggleButton(
                     checked = i == selected,
