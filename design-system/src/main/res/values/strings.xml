@@ -1,0 +1,5 @@
+<resources>
+    <string name="ds_view_cards">Show as cards</string>
+    <string name="ds_view_rows">Show as rows</string>
+    <string name="ds_cancel">Cancel</string>
+</resources>

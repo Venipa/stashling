@@ -10,8 +10,6 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
-import net.venipa.stashling.core.whisparr.WhisparrClients
-import net.venipa.stashling.core.whisparr.WhisparrRepository
 import net.venipa.stashling.core.data.BookmarkRepository
 import net.venipa.stashling.core.data.RoomBookmarkRepository
 import net.venipa.stashling.core.data.SecretStore
@@ -22,6 +20,8 @@ import net.venipa.stashling.core.data.StashlingDatabase
 import net.venipa.stashling.core.stash.StashDbApi
 import net.venipa.stashling.core.stash.StashDbClient
 import net.venipa.stashling.core.stash.newStashHttpClient
+import net.venipa.stashling.core.whisparr.WhisparrClients
+import net.venipa.stashling.core.whisparr.WhisparrRepository
 
 /** Manual DI: one instance per process, created by [StashlingApp]. */
 class AppContainer(context: Context) {
