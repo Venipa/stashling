@@ -51,6 +51,11 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
         val PRESETS = stringPreferencesKey("whisparr_presets")
         val RULES = stringPreferencesKey("whisparr_tag_rules")
         val HAPTICS = booleanPreferencesKey("haptics")
+        val UPDATE_AUTO = booleanPreferencesKey("update_auto")
+        val UPDATE_PRE = booleanPreferencesKey("update_prerelease")
+        val UPDATE_SKIPPED = stringPreferencesKey("update_skipped")
+        val UPDATE_LAST_CHECK = longPreferencesKey("update_last_check")
+        val UPDATE_NOTIFIED = stringPreferencesKey("update_notified")
         val RECENTS = stringPreferencesKey("recent_searches")
         val json = Json { ignoreUnknownKeys = true }
 
@@ -92,6 +97,11 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
                 tagRules = list(RULES, TagRule.serializer()),
                 recentSearches = list(RECENTS, String.serializer()),
                 haptics = this[HAPTICS] ?: d.haptics,
+                updateAuto = this[UPDATE_AUTO] ?: d.updateAuto,
+                updatePrerelease = this[UPDATE_PRE] ?: d.updatePrerelease,
+                updateSkipped = this[UPDATE_SKIPPED],
+                updateLastCheck = this[UPDATE_LAST_CHECK],
+                updateNotified = this[UPDATE_NOTIFIED],
             )
         }
 
@@ -118,6 +128,11 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
             this[PRESETS] = json.encodeToString(ListSerializer(WhisparrPreset.serializer()), s.presets)
             this[RULES] = json.encodeToString(ListSerializer(TagRule.serializer()), s.tagRules)
             this[HAPTICS] = s.haptics
+            this[UPDATE_AUTO] = s.updateAuto
+            this[UPDATE_PRE] = s.updatePrerelease
+            setOrRemove(UPDATE_SKIPPED, s.updateSkipped)
+            setOrRemove(UPDATE_LAST_CHECK, s.updateLastCheck)
+            setOrRemove(UPDATE_NOTIFIED, s.updateNotified)
             this[RECENTS] = json.encodeToString(ListSerializer(String.serializer()), s.recentSearches)
         }
     }

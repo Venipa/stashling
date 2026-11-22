@@ -6,6 +6,8 @@
     <!-- Android 17+ (target 37): reaching a LAN Whisparr needs this runtime permission. -->
     <uses-permission android:name="android.permission.ACCESS_LOCAL_NETWORK" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
+    <!-- In-app updater: installs a newer release (same package, same key) after the user allows it. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
 
     <!-- Cleartext and user CAs come from network_security_config (LAN Whisparr); the StashDB client refuses http in code. -->
     <application
@@ -33,5 +35,6 @@
                 <data android:scheme="stashling" android:host="scene" />
             </intent-filter>
         </activity>
+        <receiver android:name=".update.UpdateReceiver" android:exported="false" />
     </application>
 </manifest>

@@ -8,7 +8,9 @@ import coil3.disk.DiskCache
 import coil3.disk.directory
 import coil3.network.okhttp.OkHttpNetworkFetcherFactory
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
+import net.venipa.stashling.update.UpdateCheckScheduler
 import net.venipa.stashling.work.DownloadWatchScheduler
 import okhttp3.OkHttpClient
 
@@ -21,6 +23,7 @@ class StashlingApp :
         super.onCreate()
         // Off main: the first secrets read blocks on DataStore + Keystore, and worker-only process starts need no UI wait.
         container.appScope.launch(Dispatchers.IO) { DownloadWatchScheduler.bind(this@StashlingApp, container.secrets.whisparr, container.appScope) }
+        UpdateCheckScheduler.bind(this, container.settings.settings.map { it.updateAuto }, container.appScope)
     }
 
     // Its own OkHttp client: StashDB images need no key (stash-box serves /images anonymously), so the key never reaches Coil.

@@ -9,6 +9,8 @@ import androidx.compose.animation.ExitTransition
 import androidx.compose.animation.SharedTransitionLayout
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -24,6 +26,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -72,6 +75,7 @@ import androidx.navigation3.runtime.rememberNavBackStack
 import androidx.navigation3.runtime.rememberSaveableStateHolderNavEntryDecorator
 import androidx.navigation3.scene.Scene
 import androidx.navigation3.ui.NavDisplay
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
@@ -123,6 +127,9 @@ import net.venipa.stashling.feature.library.LibraryDockControls
 import net.venipa.stashling.feature.library.LibraryScreen
 import net.venipa.stashling.feature.onboarding.OnboardingScreen
 import net.venipa.stashling.feature.settings.SettingsScreen
+import net.venipa.stashling.feature.update.UpdatePill
+import net.venipa.stashling.feature.update.UpdateSheets
+import net.venipa.stashling.feature.update.showsUpdatePill
 
 private const val PUSHED = "pushed"
 private const val TRANSFORM = "transform"
@@ -220,6 +227,24 @@ fun AppNav(
     }
     val sections by downloads.sections.collectAsState()
 
+    // In-app updater: resume continues an install that waited for Android's permission; an automatic check at most every 6 h.
+    val updater = container.updater
+    LaunchedEffect(lifecycle) {
+        lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            updater.onResumed()
+            val s = container.settings.settings.first()
+            if (s.updateAuto && System.currentTimeMillis() - (s.updateLastCheck ?: 0L) > 6 * 3_600_000L) updater.check(manual = false)
+        }
+    }
+    val updateState by updater.state.collectAsState()
+    val updateHidden by updater.hiddenForSession.collectAsState()
+    val showUpdate = showDock && showsUpdatePill(updateState, updateHidden)
+    var updatePx by remember { mutableIntStateOf(0) }
+    // The pill floats 8dp above the dock (wide: 16dp above the nav bar); lists and snackbars keep clear of it.
+    val navBar = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding()
+    val pillBottom = if (wide) navBar + 16.dp else dockInset + 8.dp
+    val contentInset = if (showUpdate) pillBottom + with(density) { updatePx.toDp() } else dockInset
+
     val root = backStack.first()
     val selected = tabKeys.indexOf(root).coerceAtLeast(0)
     val active = if (hasDownloads) sections.downloading.size else 0
@@ -252,6 +277,7 @@ fun AppNav(
     val contextMenu = remember { ContextMenuState() }
     CompositionLocalProvider(LocalContextMenu provides contextMenu) {
         ContextMenuHost(contextMenu) {
+            UpdateSheets(updater)
             Row(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background)) {
                 if (wide) {
                     NavigationRail(containerColor = MaterialTheme.colorScheme.surfaceContainer) {
@@ -265,7 +291,7 @@ fun AppNav(
                 }
                 Box(Modifier.weight(1f).fillMaxHeight()) {
                     val dockTop = if (wide && showDock && top != null) with(density) { pillPx.toDp() } + 16.dp else 0.dp
-                    CompositionLocalProvider(LocalNavigator provides navigator, LocalDockInset provides dockInset, LocalDockTop provides dockTop, LocalGlass provides glass) {
+                    CompositionLocalProvider(LocalNavigator provides navigator, LocalDockInset provides contentInset, LocalDockTop provides dockTop, LocalGlass provides glass) {
                         SharedTransitionLayout(Modifier.fillMaxSize().glassSource(glass)) {
                             CompositionLocalProvider(LocalSharedScope provides this) {
                                 NavDisplay(
@@ -276,7 +302,7 @@ fun AppNav(
                                     sharedTransitionScope = this,
                                     transitionSpec = {
                                         when {
-                                            // 6B: the tile grows into the page (shared bounds); the grid stays underneath.
+                                            // Container transform: the tile grows into the page (shared bounds); the grid stays underneath.
                                             !reduce && targetState.isTransform() -> EnterTransition.None togetherWith ExitTransition.KeepUntilTransitionsFinished
 
                                             initialState.isPushed() || targetState.isPushed() -> sharedAxisXEnter(offsetPx, reduce) togetherWith sharedAxisXExit(offsetPx, reduce)
@@ -334,8 +360,15 @@ fun AppNav(
                             GlassDock(glass, tabs, selected, onSelect = { goTab(tabKeys[it]) }, compact = compact, onHeightChanged = { dockPx = it }, top = top)
                         }
                     }
+                    // The update pill floats above the dock (detached from it), on every tab root.
+                    androidx.compose.animation.AnimatedVisibility(
+                        showUpdate,
+                        Modifier.align(Alignment.BottomCenter).padding(bottom = pillBottom),
+                        enter = if (reduce) fadeIn() else fadeIn() + slideInVertically { it / 2 },
+                        exit = if (reduce) fadeOut() else fadeOut() + slideOutVertically { it / 2 },
+                    ) { UpdatePill(updater, glass, Modifier.onSizeChanged { updatePx = it.height }) }
                     // Scene action messages (swipe / detail menus) above the dock, or above the nav bar on pushed routes.
-                    SceneActionsHost(Modifier.align(Alignment.BottomCenter).then(if (dockInset > 0.dp) Modifier.padding(bottom = dockInset) else Modifier.navigationBarsPadding()))
+                    SceneActionsHost(Modifier.align(Alignment.BottomCenter).then(if (contentInset > 0.dp) Modifier.padding(bottom = contentInset) else Modifier.navigationBarsPadding()))
                 }
             }
         }
@@ -351,7 +384,7 @@ private fun AnimatedContentTransitionScope<Scene<NavKey>>.popSpec(
     ltr: Boolean,
 ): ContentTransform = if (!reduce && initialState.isTransform()) EnterTransition.None togetherWith ExitTransition.KeepUntilTransitionsFinished else backEnter(ltr, reduce) togetherWith backExit(ltr, reduce)
 
-/** The detail page side of the 6B container transform: an opaque page whose bounds are shared with the tapped tile. */
+/** The detail page side of the container transform: an opaque page whose bounds are shared with the tapped tile. */
 @Composable
 private fun Transformed(
     key: String,

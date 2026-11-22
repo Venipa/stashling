@@ -51,6 +51,7 @@ fun SettingsScreen(
     tab: Boolean = false,
 ) {
     val container = LocalAppContainer.current
+    val hasUpdate = container.updater.state.collectAsState().value !is net.venipa.stashling.update.UpdateState.Idle
     // Not rendered until the stored values are in: controls must not animate from defaults to the real values.
     val settings = container.settingsState.collectAsState().value ?: return
     val whisparr by container.secrets.whisparr.collectAsState()
@@ -133,7 +134,7 @@ fun SettingsScreen(
                 }
                 SectionHeader(stringResource(R.string.settings_about), Gutter)
                 TonalGroup(Gutter) {
-                    GroupRow(stringResource(R.string.settings_about_title), supporting = stringResource(R.string.settings_about_value, net.venipa.stashling.BuildConfig.VERSION_NAME), icon = StashlingIcons.Info, onClick = { onOpen(SettingsSection.About) })
+                    GroupRow(stringResource(R.string.settings_about_title), supporting = stringResource(if (hasUpdate) R.string.settings_about_update else R.string.settings_about_value, net.venipa.stashling.BuildConfig.VERSION_NAME), icon = StashlingIcons.Info, onClick = { onOpen(SettingsSection.About) })
                 }
             }
         }

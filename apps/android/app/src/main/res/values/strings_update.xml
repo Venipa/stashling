@@ -1,0 +1,58 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- In-app updater (GitHub releases). -->
+<resources>
+    <string name="update_available_title">Stashling %1$s is available</string>
+    <string name="update_available_body">Tap for what\'s new</string>
+    <string name="update_action">Update</string>
+    <string name="update_downloading_title">Downloading Stashling %1$s</string>
+    <string name="update_progress">%1$d %% · %2$s of %3$s</string>
+    <string name="update_cancel">Cancel</string>
+    <string name="update_ready_title">Stashling %1$s is ready</string>
+    <string name="update_ready_body">Tap Install to finish</string>
+    <string name="update_install">Install</string>
+    <string name="update_permission_pill">Allow installing to finish the update</string>
+    <string name="update_allow">Allow</string>
+    <string name="update_failed_title">Update failed</string>
+    <string name="update_retry">Retry</string>
+    <string name="update_fail_download">The download stopped. Check the connection and retry.</string>
+    <string name="update_fail_checksum">The download was damaged. Retry.</string>
+    <string name="update_fail_signature">This file isn\'t signed with Stashling\'s key, so it won\'t be installed.</string>
+    <string name="update_fail_other_app">This build can\'t update itself (debug or another package). Install the release build.</string>
+    <string name="update_fail_install">Android didn\'t install it. Retry.</string>
+
+    <string name="update_sheet_title">Stashling %1$s</string>
+    <string name="update_prerelease">Pre-release</string>
+    <string name="update_sheet_meta">Released %1$s · %2$s · you have %3$s</string>
+    <string name="update_sheet_meta_nodate">%1$s · you have %2$s</string>
+    <string name="update_whats_new">What\'s new</string>
+    <string name="update_no_notes">No release notes.</string>
+    <string name="update_more">More</string>
+    <string name="update_less">Less</string>
+    <string name="update_download_install">Download and install</string>
+    <string name="update_downloading_button">Downloading · %1$d %%</string>
+    <string name="update_skip">Skip this version</string>
+    <string name="update_skip_short">Skip</string>
+    <string name="update_later">Later</string>
+
+    <string name="update_permission_title">Allow Stashling to install updates</string>
+    <string name="update_permission_body">Android asks once. Turn on Allow from this source on the next screen, then come back; the update continues by itself.</string>
+    <string name="update_permission_open">Open Android settings</string>
+    <string name="update_not_now">Not now</string>
+
+    <string name="update_check">Check for updates</string>
+    <string name="update_check_now">Check now</string>
+    <string name="update_checking">Checking…</string>
+    <string name="update_up_to_date">Up to date · checked %1$s</string>
+    <string name="update_just_now">just now</string>
+    <string name="update_never_checked">Not checked yet</string>
+    <string name="update_check_failed">Couldn\'t reach GitHub</string>
+    <string name="update_auto">Check automatically</string>
+    <string name="update_auto_body">Once a day; notifies when there is one</string>
+    <string name="update_pre">Include pre-releases</string>
+    <string name="update_pre_body">Beta builds from GitHub</string>
+    <string name="settings_about_update">Version %1$s · update available</string>
+
+    <string name="update_channel">App updates</string>
+    <string name="update_channel_description">A new Stashling version on GitHub</string>
+    <string name="update_notify_text">Tap to see what\'s new and install</string>
+</resources>

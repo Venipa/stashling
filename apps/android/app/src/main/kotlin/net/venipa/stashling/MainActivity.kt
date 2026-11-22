@@ -84,9 +84,11 @@ class MainActivity : FragmentActivity() {
         readDeepLink(intent)
     }
 
-    // stashling://scene/<stashId>
+    // stashling://scene/<stashId>, stashling://update
     private fun readDeepLink(intent: Intent?) {
         val uri = intent?.data ?: return
         if (uri.scheme == "stashling" && uri.host == "scene") deepLinkScene = uri.lastPathSegment?.takeIf { it.isNotBlank() }
+        // From the update notification (an explicit intent; no intent filter exposes this host).
+        if (uri.scheme == "stashling" && uri.host == "update") container.updater.openSheet()
     }
 }

@@ -94,6 +94,15 @@ data class Settings(
     /** Browse search history: last 10, newest first. */
     val recentSearches: List<String> = emptyList(),
     val haptics: Boolean = true,
+    /** Daily background check for a new GitHub release (+ notification). */
+    val updateAuto: Boolean = true,
+    val updatePrerelease: Boolean = false,
+    /** Release tag the user chose to skip; a newer tag shows again. */
+    val updateSkipped: String? = null,
+    /** Last successful check (epoch ms). */
+    val updateLastCheck: Long? = null,
+    /** Tag already notified about, so the daily check notifies once per release. */
+    val updateNotified: String? = null,
 ) {
     /** Default first, then the custom ones. */
     val allPresets: List<WhisparrPreset> get() = listOf(whisparr.asPreset()) + presets

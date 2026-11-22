@@ -97,4 +97,5 @@ jobs:
         if: github.ref_type == 'tag'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: gh release create "$GITHUB_REF_NAME" "$APK" --title "Stashling ${{ steps.version.outputs.name }}" --generate-notes
+        # v1.2.0-beta.1 and similar tags become pre-releases (the in-app updater offers them only when asked).
+        run: gh release create "$GITHUB_REF_NAME" "$APK" --title "Stashling ${{ steps.version.outputs.name }}" --generate-notes $(case "$GITHUB_REF_NAME" in *-*) echo --prerelease;; esac)

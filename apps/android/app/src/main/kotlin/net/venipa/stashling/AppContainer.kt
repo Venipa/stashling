@@ -78,6 +78,9 @@ class AppContainer(context: Context) {
 
     val appLock by lazy { AppLockController(settings.settings, appScope) }
 
+    /** In-app updater (GitHub releases). */
+    val updater by lazy { net.venipa.stashling.update.AppUpdater(context.applicationContext, settings, appScope) }
+
     // --- whisparr ---
     // Own client per account (never the StashDB one); null = not connected → PanelState.Unavailable.
     // shortcut: the previous client is not closed on account change (rare, small leak), close it if switching gets common.

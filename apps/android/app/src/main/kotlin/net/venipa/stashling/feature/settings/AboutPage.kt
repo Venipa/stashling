@@ -1,6 +1,7 @@
 package net.venipa.stashling.feature.settings
 
 import android.net.Uri
+import android.text.format.DateUtils
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -13,6 +14,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -21,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -35,6 +38,7 @@ import coil3.compose.AsyncImage
 import coil3.request.ImageRequest
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
@@ -45,10 +49,12 @@ import net.venipa.stashling.R
 import net.venipa.stashling.ds.GroupRow
 import net.venipa.stashling.ds.Gutter
 import net.venipa.stashling.ds.SectionHeader
+import net.venipa.stashling.ds.StashSwitch
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalCard
 import net.venipa.stashling.ds.TonalGroup
 import net.venipa.stashling.feature.common.openLink
+import net.venipa.stashling.update.UpdateState
 
 private const val SOURCE = "https://github.com/Venipa/stashling"
 private const val AUTHOR = "https://github.com/Venipa"
@@ -133,6 +139,7 @@ internal fun AboutPage(onBack: () -> Unit) {
         SectionHeader(stringResource(R.string.about_app), Gutter.padding(top = 8.dp))
         TonalGroup(Gutter) {
             GroupRow(stringResource(R.string.about_version), supporting = stringResource(R.string.about_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.BUILD_TYPE, BuildConfig.GIT_HASH), icon = StashlingIcons.Info)
+            UpdateRows()
             GroupRow(stringResource(R.string.about_sources), supporting = stringResource(R.string.about_sources_value), icon = StashlingIcons.Scenes)
             GroupRow(stringResource(R.string.about_privacy), supporting = stringResource(R.string.about_privacy_value), icon = StashlingIcons.Privacy)
         }
@@ -174,3 +181,64 @@ private fun readContributors(context: android.content.Context): List<Contributor
 
 // Host and port only: the path (urlBase) adds nothing here.
 private fun String.host(): String = Uri.parse(this).let { u -> u.host?.let { h -> if (u.port > 0) "$h:${u.port}" else h } } ?: this
+
+/** Updater controls under About → App. */
+@Composable
+private fun UpdateRows() {
+    val container = LocalAppContainer.current
+    val updater = container.updater
+    val state by updater.state.collectAsState()
+    val checking by updater.checking.collectAsState()
+    val checkFailed by updater.checkFailed.collectAsState()
+    val settings = container.settingsState.collectAsState().value
+    val scope = rememberCoroutineScope()
+    val release = state.release
+    val lastCheck = settings?.updateLastCheck
+    GroupRow(
+        stringResource(R.string.update_check),
+        supporting =
+        when {
+            checking -> stringResource(R.string.update_checking)
+
+            release != null -> stringResource(R.string.update_available_title, release.version)
+
+            checkFailed -> stringResource(R.string.update_check_failed)
+
+            lastCheck != null -> {
+                val now = System.currentTimeMillis()
+                val ago =
+                    if (now - lastCheck < DateUtils.MINUTE_IN_MILLIS) {
+                        stringResource(R.string.update_just_now)
+                    } else {
+                        DateUtils.getRelativeTimeSpanString(lastCheck, now, DateUtils.MINUTE_IN_MILLIS).toString().replaceFirstChar(Char::lowercaseChar)
+                    }
+                stringResource(R.string.update_up_to_date, ago)
+            }
+
+            else -> stringResource(R.string.update_never_checked)
+        },
+        icon = StashlingIcons.Download,
+        onClick = if (release != null) updater::openSheet else null,
+        trailing = {
+            OutlinedButton({ scope.launch { if (updater.check(manual = true) != null) updater.openSheet() } }, enabled = !checking) {
+                Text(stringResource(R.string.update_check_now))
+            }
+        },
+    )
+    val auto = settings?.updateAuto ?: true
+    val pre = settings?.updatePrerelease ?: false
+    GroupRow(
+        stringResource(R.string.update_auto),
+        supporting = stringResource(R.string.update_auto_body),
+        icon = StashlingIcons.CheckCircle,
+        onClick = { scope.launch { container.settings.update { it.copy(updateAuto = !auto) } } },
+        trailing = { StashSwitch(auto, { v -> scope.launch { container.settings.update { it.copy(updateAuto = v) } } }) },
+    )
+    GroupRow(
+        stringResource(R.string.update_pre),
+        supporting = stringResource(R.string.update_pre_body),
+        icon = StashlingIcons.Tag,
+        onClick = { scope.launch { container.settings.update { it.copy(updatePrerelease = !pre) } } },
+        trailing = { StashSwitch(pre, { v -> scope.launch { container.settings.update { it.copy(updatePrerelease = v) } } }) },
+    )
+}

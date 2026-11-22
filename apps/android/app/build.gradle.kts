@@ -188,6 +188,8 @@ val expectedPermissions =
         "android.permission.POST_NOTIFICATIONS",
         // Android 17 local network protection: LAN Whisparr.
         "android.permission.ACCESS_LOCAL_NETWORK",
+        // In-app updater (GitHub releases).
+        "android.permission.REQUEST_INSTALL_PACKAGES",
         // androidx.biometric (app lock).
         "android.permission.USE_BIOMETRIC",
         "android.permission.USE_FINGERPRINT",
