@@ -1,0 +1,85 @@
+package net.venipa.stashling.feature.common
+
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import net.venipa.stashling.core.stash.Page
+
+data class PagedState<T>(
+    val items: List<T> = emptyList(),
+    val loading: Boolean = false,
+    val error: Throwable? = null,
+    val hasNext: Boolean = true,
+    val started: Boolean = false,
+)
+
+/** ViewModel page loader (1-based pages, 40 per page via the API default). An error stops auto-loading until [retry]. */
+class PageLoader<T>(
+    private val scope: CoroutineScope,
+    private val key: (T) -> String,
+    private var fetch: suspend (page: Int) -> Page<T>,
+) {
+    private val _state = MutableStateFlow(PagedState<T>())
+    val state: StateFlow<PagedState<T>> = _state.asStateFlow()
+    private var job: Job? = null
+    private var page = 0
+
+    fun ensureStarted() {
+        if (!_state.value.started) reload()
+    }
+
+    fun reload(newFetch: (suspend (Int) -> Page<T>)? = null) {
+        newFetch?.let { fetch = it }
+        job?.cancel()
+        page = 0
+        _state.value = PagedState(started = true)
+        loadMore()
+    }
+
+    fun loadMore() {
+        val s = _state.value
+        if (s.loading || !s.hasNext || s.error != null) return
+        _state.update { it.copy(loading = true) }
+        val next = page + 1
+        job = scope.launch {
+            try {
+                val p = fetch(next)
+                page = next
+                _state.update { PagedState((it.items + p.items).distinctBy(key), hasNext = p.hasNext, started = true) }
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _state.update { it.copy(loading = false, error = e) }
+            }
+        }
+    }
+
+    fun retry() {
+        _state.update { it.copy(error = null) }
+        loadMore()
+    }
+}
+
+/** One-shot load state of a detail screen. */
+sealed interface Load<out T> {
+    data object Loading : Load<Nothing>
+
+    data object NotFound : Load<Nothing>
+
+    data class Failed(val error: Throwable) : Load<Nothing>
+
+    data class Data<T>(val value: T) : Load<T>
+}
+
+suspend fun <T : Any> loadOf(block: suspend () -> T?): Load<T> = try {
+    block()?.let { Load.Data(it) } ?: Load.NotFound
+} catch (e: CancellationException) {
+    throw e
+} catch (e: Exception) {
+    Load.Failed(e)
+}

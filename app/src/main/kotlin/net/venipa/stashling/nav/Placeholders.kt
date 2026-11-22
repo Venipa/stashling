@@ -13,20 +13,4 @@ fun Placeholder(label: String) {
     Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) { Text(label, style = MaterialTheme.typography.titleMedium) }
 }
 
-@Composable fun HomePlaceholder() = Placeholder("Home")
-
-@Composable fun BrowsePlaceholder() = Placeholder("Browse")
-
-@Composable fun SavedPlaceholder() = Placeholder("Saved")
-
 @Composable fun DownloadsPlaceholder() = Placeholder("Downloads")
-
-@Composable fun SceneDetailPlaceholder(id: String) = Placeholder("Scene $id")
-
-@Composable fun PerformerDetailPlaceholder(id: String) = Placeholder("Performer $id")
-
-@Composable fun StudioDetailPlaceholder(id: String) = Placeholder("Studio $id")
-
-@Composable fun TagDetailPlaceholder(id: String) = Placeholder("Tag $id")
-
-@Composable fun GalleryPlaceholder(route: GalleryRoute) = Placeholder("Gallery ${route.kind} ${route.id} #${route.index}")

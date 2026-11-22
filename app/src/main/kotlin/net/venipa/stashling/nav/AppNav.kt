@@ -46,7 +46,15 @@ import net.venipa.stashling.ds.navBarExit
 import net.venipa.stashling.ds.rememberGlassState
 import net.venipa.stashling.ds.sharedAxisXEnter
 import net.venipa.stashling.ds.sharedAxisXExit
+import net.venipa.stashling.feature.browse.BrowseScreen
+import net.venipa.stashling.feature.detail.PerformerDetailScreen
+import net.venipa.stashling.feature.detail.SceneDetailScreen
+import net.venipa.stashling.feature.detail.StudioDetailScreen
+import net.venipa.stashling.feature.detail.TagDetailScreen
+import net.venipa.stashling.feature.gallery.GalleryScreen
+import net.venipa.stashling.feature.home.HomeScreen
 import net.venipa.stashling.feature.onboarding.OnboardingScreen
+import net.venipa.stashling.feature.saved.SavedScreen
 import net.venipa.stashling.feature.settings.SettingsScreen
 
 private const val PUSHED = "pushed"
@@ -124,15 +132,15 @@ fun AppNav(
                 predictivePopTransitionSpec = { backEnter(ltr, reduce) togetherWith backExit(ltr, reduce) },
                 entryProvider =
                 entryProvider {
-                    entry<HomeRoute> { HomePlaceholder() }
-                    entry<BrowseRoute> { BrowsePlaceholder() }
-                    entry<SavedRoute> { SavedPlaceholder() }
+                    entry<HomeRoute> { HomeScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }) }
+                    entry<BrowseRoute> { BrowseScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
+                    entry<SavedRoute> { SavedScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
                     entry<DownloadsRoute> { DownloadsPlaceholder() }
-                    entry<SceneDetailRoute>(metadata = mapOf(PUSHED to true)) { SceneDetailPlaceholder(it.id) }
-                    entry<PerformerDetailRoute>(metadata = mapOf(PUSHED to true)) { PerformerDetailPlaceholder(it.id) }
-                    entry<StudioDetailRoute>(metadata = mapOf(PUSHED to true)) { StudioDetailPlaceholder(it.id) }
-                    entry<TagDetailRoute>(metadata = mapOf(PUSHED to true)) { TagDetailPlaceholder(it.id) }
-                    entry<GalleryRoute>(metadata = mapOf(PUSHED to true)) { GalleryPlaceholder(it) }
+                    entry<SceneDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> SceneDetailScreen(r.id, onBack = navigator.pop, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("scene", r.id, i)) }) }
+                    entry<PerformerDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> PerformerDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("performer", r.id, i)) }) }
+                    entry<StudioDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> StudioDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("studio", r.id, i)) }) }
+                    entry<TagDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> TagDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }) }
+                    entry<GalleryRoute>(metadata = mapOf(PUSHED to true)) { GalleryScreen(it.kind, it.id, it.index, navigator.pop) }
                     // shell
                     entry<SettingsRoute>(metadata = mapOf(PUSHED to true)) { SettingsScreen(it.section, onBack = navigator.pop, onOpen = { s -> navigator.push(SettingsRoute(s)) }, onRerun = { step -> navigator.push(OnboardingRoute(step)) }) }
                     entry<OnboardingRoute>(metadata = mapOf(PUSHED to true)) { OnboardingScreen(only = it.only, onFinished = navigator.pop, onExit = navigator.pop) }

@@ -1,0 +1,114 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- home -->
+    <string name="home_trending">Trending</string>
+    <string name="home_new">New</string>
+    <string name="home_favorites">Favorites</string>
+
+    <!-- browse (shared list/error copy included) -->
+    <string name="browse_untitled">Untitled</string>
+    <string name="browse_empty">Nothing found</string>
+    <string name="browse_retry">Try again</string>
+    <string name="browse_sign_in_again">Sign in again</string>
+    <string name="browse_error_title">Could not load</string>
+    <string name="browse_error_unauthorized">Your StashDB sign-in is no longer valid</string>
+    <string name="browse_error_network">Check your connection and try again.</string>
+    <string name="browse_error_http">StashDB answered with HTTP %1$d.</string>
+    <string name="browse_error_generic">Something went wrong. Try again in a moment.</string>
+    <string name="browse_kind_scenes">Scenes</string>
+    <string name="browse_kind_performers">Performers</string>
+    <string name="browse_kind_studios">Studios</string>
+    <string name="browse_kind_tags">Tags</string>
+    <string name="browse_search_hint">Search</string>
+    <string name="browse_clear">Clear</string>
+    <string name="browse_apply">Apply</string>
+    <string name="browse_any">Any</string>
+    <string name="browse_sort">Sort: %1$s</string>
+    <string name="browse_sort_title_sheet">Sort by</string>
+    <string name="browse_ascending">Ascending</string>
+    <string name="browse_descending">Descending</string>
+    <string name="browse_sort_title">Title</string>
+    <string name="browse_sort_date">Release date</string>
+    <string name="browse_sort_duration">Duration</string>
+    <string name="browse_sort_trending">Trending</string>
+    <string name="browse_sort_popularity">Popularity</string>
+    <string name="browse_sort_created">Added</string>
+    <string name="browse_sort_updated">Updated</string>
+    <string name="browse_sort_name">Name</string>
+    <string name="browse_sort_scene_count">Scene count</string>
+    <string name="browse_sort_last_scene">Latest scene</string>
+    <string name="browse_sort_debut">Debut</string>
+    <string name="browse_filter_tags">Tags</string>
+    <string name="browse_filter_tags_n">Tags (%1$d)</string>
+    <string name="browse_filter_studio">Studio</string>
+    <string name="browse_filter_performer">Performer</string>
+    <string name="browse_filter_date">Date</string>
+    <string name="browse_filter_favorites">Favorites</string>
+    <string name="browse_filter_category">Category</string>
+    <string name="browse_date_before">Before</string>
+    <string name="browse_date_after">After</string>
+    <string name="browse_date_before_value">Before %1$s</string>
+    <string name="browse_date_after_value">After %1$s</string>
+    <string name="browse_date_hint">Date (YYYY-MM-DD)</string>
+    <string name="browse_fav_off">Off</string>
+    <string name="browse_fav_performers">Favorite performers</string>
+    <string name="browse_fav_studios">Favorite studios</string>
+    <string name="browse_fav_both">Both</string>
+    <string name="browse_scenes_count">%1$d scenes</string>
+
+    <!-- detail -->
+    <string name="detail_back">Back</string>
+    <string name="detail_not_found">Not found on StashDB</string>
+    <string name="detail_deleted">This entry was deleted on StashDB.</string>
+    <string name="detail_bookmark">Bookmark</string>
+    <string name="detail_unbookmark">Remove bookmark</string>
+    <string name="detail_favorite">Favorite on StashDB</string>
+    <string name="detail_unfavorite">Remove StashDB favorite</string>
+    <string name="detail_fav_local">Your StashDB account cannot favorite, saved as a local bookmark instead.</string>
+    <string name="detail_fav_failed">Could not update the favorite.</string>
+    <string name="detail_release_date">Release date</string>
+    <string name="detail_duration">Duration</string>
+    <string name="detail_code">Code</string>
+    <string name="detail_director">Director</string>
+    <string name="detail_production_date">Production date</string>
+    <string name="detail_performers">Performers</string>
+    <string name="detail_as">as %1$s</string>
+    <string name="detail_tags">Tags</string>
+    <string name="detail_details">Details</string>
+    <string name="detail_links">Links</string>
+    <string name="detail_images">Images</string>
+    <string name="detail_scenes">Scenes</string>
+    <string name="detail_scenes_n">Scenes (%1$d)</string>
+    <string name="detail_disambiguation">Disambiguation</string>
+    <string name="detail_aliases">Aliases</string>
+    <string name="detail_gender">Gender</string>
+    <string name="detail_born">Born</string>
+    <string name="detail_died">Died</string>
+    <string name="detail_country">Country</string>
+    <string name="detail_ethnicity">Ethnicity</string>
+    <string name="detail_eyes">Eye color</string>
+    <string name="detail_hair">Hair color</string>
+    <string name="detail_height">Height</string>
+    <string name="detail_measurements">Measurements</string>
+    <string name="detail_breasts">Breast type</string>
+    <string name="detail_career">Career</string>
+    <string name="detail_tattoos">Tattoos</string>
+    <string name="detail_piercings">Piercings</string>
+    <string name="detail_parent_studio">Parent studio</string>
+    <string name="detail_sub_studios">Sub-studios</string>
+    <string name="detail_category">Category</string>
+
+    <!-- gallery -->
+    <string name="gallery_counter">%1$d / %2$d</string>
+
+    <!-- saved -->
+    <string name="saved_stashdb_favorites">StashDB favorites</string>
+    <string name="saved_sort_added">Added</string>
+    <string name="saved_sort_title">Title</string>
+    <string name="saved_empty">Nothing saved yet</string>
+    <string name="saved_empty_body">Bookmark scenes, performers, studios and tags to find them here.</string>
+    <string name="saved_empty_remote">No favorites on StashDB</string>
+    <string name="saved_remove_title">Remove bookmark?</string>
+    <string name="saved_remove_body">%1$s will be removed from Saved.</string>
+    <string name="saved_remove">Remove</string>
+</resources>
