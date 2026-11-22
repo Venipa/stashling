@@ -40,6 +40,8 @@ import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
+import net.venipa.stashling.ds.fieldColors
+import net.venipa.stashling.ds.fieldShape
 import net.venipa.stashling.ds.sheetTitle
 import net.venipa.stashling.feature.common.groupShape
 import java.time.LocalDate
@@ -129,7 +131,7 @@ fun PickerSheet(
         }
     }
     SheetColumn(title) {
-        TextField(q, { q = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(stringResource(R.string.browse_search_hint)) })
+        TextField(q, { q = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(stringResource(R.string.browse_search_hint)) }, shape = fieldShape(), colors = fieldColors())
         header()
         when (val r = result) {
             PickResult.Loading -> Loading(Modifier.align(Alignment.CenterHorizontally))
@@ -167,6 +169,8 @@ fun DateSheet(
             singleLine = true,
             label = { Text(stringResource(R.string.browse_date_hint)) },
             isError = text.isNotEmpty() && !valid,
+            shape = fieldShape(),
+            colors = fieldColors(),
         )
         ActionButton(stringResource(R.string.browse_apply), { onApply(DateBound(text, before)) }, enabled = valid)
         if (current != null) ActionButton(stringResource(R.string.browse_clear), { onApply(null) }, tonal = true)

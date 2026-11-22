@@ -27,6 +27,8 @@ import net.venipa.stashling.R
 import net.venipa.stashling.core.stash.StashError
 import net.venipa.stashling.core.whisparr.WhisparrError
 import net.venipa.stashling.ds.StashlingIcons
+import net.venipa.stashling.ds.fieldColors
+import net.venipa.stashling.ds.fieldShape
 import java.net.URI
 import java.net.UnknownServiceException
 import javax.net.ssl.SSLException
@@ -90,6 +92,8 @@ internal fun CredentialField(
         label = { Text(label) },
         singleLine = true,
         isError = isError,
+        shape = fieldShape(),
+        colors = fieldColors(),
         visualTransformation = if (secret && !shown) PasswordVisualTransformation() else VisualTransformation.None,
         keyboardOptions = KeyboardOptions(keyboardType = if (secret) KeyboardType.Password else keyboardType, autoCorrectEnabled = false),
         trailingIcon =

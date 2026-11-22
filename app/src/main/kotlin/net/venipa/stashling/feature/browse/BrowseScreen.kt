@@ -41,6 +41,7 @@ import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.SortDirection
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
+import net.venipa.stashling.ds.fieldColors
 import net.venipa.stashling.feature.common.ListModeToggle
 import net.venipa.stashling.feature.common.PagedGrid
 import net.venipa.stashling.feature.common.PosterTile
@@ -115,6 +116,7 @@ fun BrowseScreen(
                     Modifier.fillMaxWidth().padding(horizontal = Space.L),
                     singleLine = true,
                     shape = CircleShape,
+                    colors = fieldColors(),
                     placeholder = { Text(stringResource(R.string.browse_search_hint)) },
                     leadingIcon = { Icon(StashlingIcons.Search, null) },
                     trailingIcon = {
