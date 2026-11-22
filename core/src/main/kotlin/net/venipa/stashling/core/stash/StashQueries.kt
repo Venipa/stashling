@@ -12,7 +12,7 @@ internal object StashQueries {
 
     // List fields only; the detail query adds the rest.
     private const val PERFORMER_CARD =
-        "fragment PerformerCard on Performer { id name disambiguation gender country scene_count is_favorite deleted merged_into_id thumbnail { $IMAGE } }"
+        "fragment PerformerCard on Performer { id name disambiguation gender country scene_count is_favorite deleted merged_into_id images { $IMAGE } }"
 
     const val SCENES = "query Scenes(\$input: SceneQueryInput!) { queryScenes(input: \$input) { count scenes { ...SceneCard } } } $SCENE_CARD"
 
@@ -23,7 +23,7 @@ internal object StashQueries {
     const val SCENE =
         "query Scene(\$id: ID!) { findScene(id: \$id) { id title details director code release_date production_date duration deleted " +
             "studio { id name parent { id name } } images { $IMAGE } " +
-            "performers { as performer { id name disambiguation thumbnail { $IMAGE } } } " +
+            "performers { as performer { id name disambiguation images { $IMAGE } } } " +
             "tags { id name category { name } } $URLS } }"
 
     const val PERFORMERS =
@@ -36,7 +36,7 @@ internal object StashQueries {
     const val PERFORMER =
         "query Performer(\$id: ID!) { findPerformer(id: \$id) { id name disambiguation aliases gender birth_date death_date age country " +
             "ethnicity eye_color hair_color height cup_size band_size waist_size hip_size breast_type career_start_year career_end_year " +
-            "tattoos { location description } piercings { location description } $URLS thumbnail { $IMAGE } images { $IMAGE } " +
+            "tattoos { location description } piercings { location description } $URLS images { $IMAGE } " +
             "scene_count is_favorite deleted merged_into_id studios { scene_count studio { id name parent { id name } } } } }"
 
     const val STUDIOS =

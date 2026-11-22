@@ -80,7 +80,7 @@ internal data class SceneDto(
         studio = studio?.toModel(),
         performers =
         performers.map {
-            PerformerRef(it.performer.id, it.performer.name, it.performer.disambiguation, it.asName, it.performer.thumbnail?.toModel())
+            PerformerRef(it.performer.id, it.performer.name, it.performer.disambiguation, it.asName, (it.performer.thumbnail ?: it.performer.images.firstOrNull())?.toModel())
         },
         tags = tags.map { it.toRef() },
         images = images.map { it.toModel() },
@@ -154,7 +154,7 @@ internal data class PerformerDto(
         isFavorite = isFavorite,
         deleted = deleted,
         mergedIntoId = mergedIntoId,
-        // Lists ask for thumbnail only; fall back to the first image on the detail.
+        // Live StashDB (2026-11) has no Performer.thumbnail (HTTP 422): queries ask for images, the first one is the tile.
         thumbnail = (thumbnail ?: images.firstOrNull())?.toModel(),
         images = images.map { it.toModel() },
         urls = urls.map { it.toModel() },
