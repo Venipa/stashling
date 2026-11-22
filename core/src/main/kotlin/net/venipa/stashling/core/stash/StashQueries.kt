@@ -23,7 +23,7 @@ internal object StashQueries {
     const val SCENE =
         "query Scene(\$id: ID!) { findScene(id: \$id) { id title details director code release_date production_date duration deleted " +
             "studio { id name parent { id name } } images { $IMAGE } " +
-            "performers { as performer { id name disambiguation images { $IMAGE } } } " +
+            "performers { as performer { id name disambiguation gender images { $IMAGE } } } " +
             "tags { id name category { name } } $URLS } }"
 
     const val PERFORMERS =

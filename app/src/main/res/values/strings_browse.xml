@@ -84,6 +84,8 @@
     <string name="detail_production_date">Production date</string>
     <string name="detail_performers">Performers</string>
     <string name="detail_as">as %1$s</string>
+    <string name="detail_performers_more">+%1$d more</string>
+    <string name="detail_performers_less">Show less</string>
     <string name="detail_tags">Tags</string>
     <string name="detail_details">Details</string>
     <string name="detail_links">Links</string>

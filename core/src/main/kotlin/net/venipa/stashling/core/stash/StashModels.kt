@@ -15,7 +15,7 @@ data class StudioRef(val id: String, val name: String, val parent: StudioRef? = 
 
 data class TagRef(val id: String, val name: String, val category: String? = null)
 
-data class PerformerRef(val id: String, val name: String, val disambiguation: String?, val asName: String?, val thumbnail: Image?)
+data class PerformerRef(val id: String, val name: String, val disambiguation: String?, val asName: String?, val thumbnail: Image?, val gender: String? = null)
 
 data class SceneCard(
     val id: String,

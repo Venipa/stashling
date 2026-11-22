@@ -83,7 +83,7 @@ internal data class SceneDto(
         studio = studio?.toModel(),
         performers =
         performers.map {
-            PerformerRef(it.performer.id, it.performer.name, it.performer.disambiguation, it.asName, (it.performer.thumbnail ?: it.performer.images.firstOrNull())?.toModel())
+            PerformerRef(it.performer.id, it.performer.name, it.performer.disambiguation, it.asName, (it.performer.thumbnail ?: it.performer.images.firstOrNull())?.toModel(), it.performer.gender)
         },
         tags = tags.map { it.toRef() },
         images = images.map { it.toModel() },

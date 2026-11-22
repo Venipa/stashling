@@ -1,5 +1,12 @@
 package net.venipa.stashling.feature.detail
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkHorizontally
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -34,7 +41,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
@@ -75,6 +84,7 @@ import net.venipa.stashling.feature.common.Load
 import net.venipa.stashling.feature.common.LoadGate
 import net.venipa.stashling.feature.common.PortraitAvatar
 import net.venipa.stashling.feature.common.StashImage
+import net.venipa.stashling.feature.common.apiValue
 import net.venipa.stashling.feature.common.formatDuration
 import net.venipa.stashling.feature.common.loadOf
 import net.venipa.stashling.feature.common.openLink
@@ -188,10 +198,32 @@ private fun SceneBody(
             if (scene.performers.isNotEmpty()) {
                 Column {
                     SectionHeader(stringResource(R.string.detail_performers))
-                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.M)) {
-                        scene.performers.forEach { p ->
+                    val wanted = LocalAppContainer.current.settings.settings.collectAsState(null).value?.performerGender?.apiValue()
+                    // Unknown gender counts as matching; no setting (BOTH) hides nothing.
+                    val (shown, hidden) = scene.performers.partition { wanted == null || it.gender == null || it.gender.equals(wanted, ignoreCase = true) }
+                    var expanded by remember { mutableStateOf(false) }
+                    val haptic = LocalStashHaptics.current
+                    val spec = spring<Float>(Spring.DampingRatioNoBouncy)
+                    Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.Start) {
+                        // Gap is end padding per tile (not spacedBy) so the collapsed, zero-width reveal adds no gap.
+                        @Composable
+                        fun Tile(p: net.venipa.stashling.core.stash.PerformerRef) {
                             val menu = rememberPerformerMenu(p, MaterialTheme.shapes.medium)
-                            PortraitAvatar(p.name, p.thumbnail?.sized(300), { onOpenPerformer(p.id) }, menu.modifier, supporting = p.asName?.let { stringResource(R.string.detail_as, it) }, onLongClick = menu.open)
+                            PortraitAvatar(p.name, p.thumbnail?.sized(300), { onOpenPerformer(p.id) }, menu.modifier.padding(end = Space.M), supporting = p.asName?.let { stringResource(R.string.detail_as, it) }, onLongClick = menu.open)
+                        }
+                        shown.forEach { Tile(it) }
+                        if (hidden.isNotEmpty()) {
+                            AnimatedVisibility(
+                                expanded,
+                                enter = expandHorizontally(spring(Spring.DampingRatioNoBouncy)) + fadeIn(spec),
+                                exit = shrinkHorizontally(spring(Spring.DampingRatioNoBouncy)) + fadeOut(spec),
+                            ) {
+                                Row { hidden.forEach { Tile(it) } }
+                            }
+                            HiddenPerformersTile(hidden.size, hidden.first().thumbnail?.sized(300), expanded) {
+                                haptic.tick()
+                                expanded = !expanded
+                            }
                         }
                     }
                 }
@@ -230,6 +262,30 @@ private fun SceneBody(
             }
         }
         Box(Modifier.size(Space.L))
+    }
+}
+
+/** Same 72x108 footprint as [PortraitAvatar]: blurred preview of the first hidden performer (tonal when none), "+N" on top, label below. */
+@Composable
+private fun HiddenPerformersTile(
+    count: Int,
+    imageUrl: String?,
+    expanded: Boolean,
+    onClick: () -> Unit,
+) {
+    val shape = MaterialTheme.shapes.medium
+    Column(Modifier.width(72.dp).clip(shape).clickable(onClick = onClick), verticalArrangement = Arrangement.spacedBy(Space.Xs)) {
+        Box(Modifier.size(72.dp, 108.dp).clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
+            StashImage(imageUrl, Modifier.fillMaxSize().blur(16.dp), null)
+            Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f)))
+            Text(if (expanded) "−" else "+$count", style = MaterialTheme.typography.titleLarge, color = Color.White)
+        }
+        Text(
+            stringResource(if (expanded) R.string.detail_performers_less else R.string.detail_performers_more, count),
+            style = MaterialTheme.typography.labelMedium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 
