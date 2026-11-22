@@ -30,10 +30,6 @@
     <string name="whisparr_age_days">%1$dd</string>
 
     <string name="downloads_title">Downloads</string>
-    <string name="downloads_tab_queue">Queue</string>
-    <string name="downloads_tab_history">History</string>
-    <string name="downloads_queue_empty">Nothing downloading</string>
-    <string name="downloads_history_empty">No downloads in the last 14 days</string>
     <string name="downloads_remove">Remove</string>
     <string name="downloads_blocklist">Blocklist</string>
     <string name="downloads_remove_title">Remove from queue?</string>

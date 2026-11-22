@@ -253,8 +253,20 @@ fun SceneRow(
     index: Int,
     count: Int,
     onClick: () -> Unit,
+) = MediaRow(scene.title ?: stringResource(R.string.browse_untitled), scene.meta(), scene.cover?.sized(300), index, count, onClick)
+
+/** [SceneRow] from plain values (bookmarks store a sized url already). */
+@Composable
+fun MediaRow(
+    title: String,
+    meta: String?,
+    imageUrl: String?,
+    index: Int,
+    count: Int,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
 ) = Row(
-    Modifier
+    modifier
         .fillMaxWidth()
         .clip(groupShape(index, count))
         .background(MaterialTheme.colorScheme.surfaceContainer)
@@ -270,10 +282,10 @@ fun SceneRow(
         bottomEnd = concentric(CardOuter, CardPad),
         bottomStart = concentric(if (index == count - 1) CardOuter else 4.dp, CardPad),
     )
-    StashImage(scene.cover?.sized(300), Modifier.width(112.dp).aspectRatio(16f / 9f).clip(thumb))
+    StashImage(imageUrl, Modifier.width(112.dp).aspectRatio(16f / 9f).clip(thumb))
     Column(Modifier.weight(1f)) {
-        Text(scene.title ?: stringResource(R.string.browse_untitled), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
-        Text(scene.meta(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(title, style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
+        meta?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis) }
     }
 }
 
@@ -463,4 +475,20 @@ fun BookmarkKind.labelRes() = when (this) {
     BookmarkKind.PERFORMER -> R.string.browse_kind_performers
     BookmarkKind.STUDIO -> R.string.browse_kind_studios
     BookmarkKind.TAG -> R.string.browse_kind_tags
+}
+
+/** StashDB web page of an entity: `<baseUrl>/scenes|performers|studios|tags/<id>`. */
+fun stashWebUrl(
+    baseUrl: String,
+    kind: BookmarkKind,
+    id: String,
+): String {
+    val path =
+        when (kind) {
+            BookmarkKind.SCENE -> "scenes"
+            BookmarkKind.PERFORMER -> "performers"
+            BookmarkKind.STUDIO -> "studios"
+            BookmarkKind.TAG -> "tags"
+        }
+    return "${baseUrl.trimEnd('/')}/$path/$id"
 }

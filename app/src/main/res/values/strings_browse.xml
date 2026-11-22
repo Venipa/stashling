@@ -102,15 +102,10 @@
     <string name="gallery_counter">%1$d / %2$d</string>
 
     <!-- saved -->
-    <string name="saved_stashdb_favorites">StashDB favorites</string>
     <string name="saved_sort_added">Added</string>
     <string name="saved_sort_title">Title</string>
     <string name="saved_empty">Nothing saved yet</string>
     <string name="saved_empty_body">Bookmark scenes, performers, studios and tags to find them here.</string>
-    <string name="saved_empty_remote">No favorites on StashDB</string>
-    <string name="saved_remove_title">Remove bookmark?</string>
-    <string name="saved_remove_body">%1$s will be removed from Saved.</string>
-    <string name="saved_remove">Remove</string>
 
     <!-- Library -->
     <string name="library_downloading_pill">%1$d downloading · %2$d%%</string>

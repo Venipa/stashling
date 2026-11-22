@@ -29,6 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,10 +51,14 @@ import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.core.data.BookmarkKind
 import net.venipa.stashling.core.stash.Scene
+import net.venipa.stashling.core.whisparr.AddMode
+import net.venipa.stashling.core.whisparr.PanelState
+import net.venipa.stashling.ds.ActionSheet
 import net.venipa.stashling.ds.CardTone
 import net.venipa.stashling.ds.GlassIconButton
 import net.venipa.stashling.ds.GroupRow
 import net.venipa.stashling.ds.SectionHeader
+import net.venipa.stashling.ds.SheetAction
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalCard
@@ -68,7 +75,9 @@ import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.formatDuration
 import net.venipa.stashling.feature.common.loadOf
 import net.venipa.stashling.feature.common.openLink
+import net.venipa.stashling.feature.common.stashWebUrl
 import net.venipa.stashling.feature.detail.whisparr.WhisparrPanel
+import net.venipa.stashling.feature.detail.whisparr.WhisparrPanelViewModel
 
 class SceneDetailViewModel(private val id: String, private val c: AppContainer) : ViewModel() {
     private val _state = MutableStateFlow<Load<Scene>>(Load.Loading)
@@ -120,6 +129,7 @@ private fun SceneBody(
 ) {
     val glass = rememberGlassState()
     val context = LocalContext.current
+    var actions by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(Space.L)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
             StashImage(
@@ -129,14 +139,18 @@ private fun SceneBody(
             )
             Row(Modifier.fillMaxWidth().statusBarsPadding().padding(Space.S), horizontalArrangement = Arrangement.SpaceBetween) {
                 GlassIconButton(glass, StashlingIcons.Back, stringResource(R.string.detail_back), onBack)
-                GlassIconButton(
-                    glass,
-                    if (bookmarked) BrowseIcons.BookmarkFilled else BrowseIcons.Bookmark,
-                    stringResource(if (bookmarked) R.string.detail_unbookmark else R.string.detail_bookmark),
-                    onBookmark,
-                )
+                Row(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
+                    GlassIconButton(
+                        glass,
+                        if (bookmarked) BrowseIcons.BookmarkFilled else BrowseIcons.Bookmark,
+                        stringResource(if (bookmarked) R.string.detail_unbookmark else R.string.detail_bookmark),
+                        onBookmark,
+                    )
+                    GlassIconButton(glass, StashlingIcons.More, stringResource(R.string.library_more), { actions = true })
+                }
             }
         }
+        if (actions) SceneActionsSheet(scene.id, scene.title, bookmarked, onBookmark) { actions = false }
         Column(Modifier.padding(horizontal = Space.L).readableWidth(), verticalArrangement = Arrangement.spacedBy(Space.L)) {
             if (scene.deleted) {
                 TonalCard(tone = CardTone.Error) { Text(stringResource(R.string.detail_deleted)) }
@@ -212,4 +226,30 @@ private fun SceneBody(
         }
         Box(Modifier.size(Space.L))
     }
+}
+
+/** Scene overflow: Open on StashDB, Add to Whisparr (while the panel says not in Whisparr; same panel ViewModel), Remove bookmark. */
+@Composable
+private fun SceneActionsSheet(
+    id: String,
+    title: String?,
+    bookmarked: Boolean,
+    onRemoveBookmark: () -> Unit,
+    onDismiss: () -> Unit,
+) {
+    val c = LocalAppContainer.current
+    val context = LocalContext.current
+    val whisparr by c.whisparr.collectAsState()
+    val panel: WhisparrPanelViewModel = viewModel(key = "whisparr-$id") { WhisparrPanelViewModel(id, c) }
+    val panelState by panel.state.collectAsState()
+    val searchOnAdd by panel.searchOnAdd.collectAsState()
+    ActionSheet(
+        title,
+        listOfNotNull(
+            SheetAction(stringResource(R.string.library_open_stashdb), StashlingIcons.OpenExternal) { c.secrets.stash.value?.let { openLink(context, stashWebUrl(it.baseUrl, BookmarkKind.SCENE, id)) } },
+            if (whisparr != null && panelState is PanelState.NotInLibrary) SheetAction(stringResource(R.string.library_add_whisparr), StashlingIcons.Download) { panel.add(if (searchOnAdd) AddMode.QUEUE else AddMode.REQUEST) } else null,
+            if (bookmarked) SheetAction(stringResource(R.string.library_remove), StashlingIcons.Delete, destructive = true, onClick = onRemoveBookmark) else null,
+        ),
+        onDismiss,
+    )
 }

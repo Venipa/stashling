@@ -2,7 +2,7 @@ package net.venipa.stashling.feature.downloads
 
 import net.venipa.stashling.core.whisparr.HistoryItem
 import net.venipa.stashling.core.whisparr.QueueItem
-import kotlin.test.Test
+import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.time.Instant
 

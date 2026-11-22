@@ -36,8 +36,8 @@ import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.ds.DockTab
 import net.venipa.stashling.ds.GlassDock
-import net.venipa.stashling.ds.LocalGlass
 import net.venipa.stashling.ds.LoadingPill
+import net.venipa.stashling.ds.LocalGlass
 import net.venipa.stashling.ds.LocalReduceMotion
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
@@ -55,10 +55,10 @@ import net.venipa.stashling.ds.sharedAxisXExit
 import net.venipa.stashling.feature.browse.BrowseScreen
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.feature.detail.PerformerDetailScreen
-import net.venipa.stashling.feature.downloads.DownloadsViewModel
 import net.venipa.stashling.feature.detail.SceneDetailScreen
 import net.venipa.stashling.feature.detail.StudioDetailScreen
 import net.venipa.stashling.feature.detail.TagDetailScreen
+import net.venipa.stashling.feature.downloads.DownloadsViewModel
 import net.venipa.stashling.feature.gallery.GalleryScreen
 import net.venipa.stashling.feature.home.HomeScreen
 import net.venipa.stashling.feature.library.LibraryScreen
