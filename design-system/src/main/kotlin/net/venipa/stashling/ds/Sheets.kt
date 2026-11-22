@@ -90,10 +90,11 @@ fun ConfirmSheet(
         Text(title, style = sheetTitle)
         Text(body, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         Row(Modifier.padding(top = Space.S), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-            FilledTonalButton(onDismiss, Modifier.weight(1f).size(width = 0.dp, height = 56.dp)) { Text(stringResource(R.string.ds_cancel)) }
+            FilledTonalButton(onDismiss, Modifier.weight(1f).size(width = 0.dp, height = 56.dp), shape = concentricShape(SheetRadius, Space.L)) { Text(stringResource(R.string.ds_cancel)) }
             Button(
                 onConfirm,
                 Modifier.weight(1f).size(width = 0.dp, height = 56.dp),
+                shape = concentricShape(SheetRadius, Space.L),
                 colors = if (destructive) ButtonDefaults.buttonColors(MaterialTheme.colorScheme.error, MaterialTheme.colorScheme.onError) else ButtonDefaults.buttonColors(),
             ) { Text(confirmLabel) }
         }

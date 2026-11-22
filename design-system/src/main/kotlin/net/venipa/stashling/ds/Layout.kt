@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -122,7 +123,7 @@ fun TonalCard(
 fun TonalGroup(
     modifier: Modifier = Modifier,
     content: @Composable ColumnScope.() -> Unit,
-) = Column(modifier.fillMaxWidth().clip(MaterialTheme.shapes.large), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
+) = Column(modifier.fillMaxWidth().clip(RoundedCornerShape(GroupRadius)), verticalArrangement = Arrangement.spacedBy(2.dp), content = content)
 
 /** A row of a [TonalGroup]: optional leading icon circle, headline, supporting line, [trailing] (value, switch) or a chevron when clickable. */
 @Composable
@@ -137,7 +138,7 @@ fun GroupRow(
     val cs = MaterialTheme.colorScheme
     ListItem(
         headlineContent = { Text(headline) },
-        modifier = modifier.clip(MaterialTheme.shapes.extraSmall).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
+        modifier = modifier.clip(RoundedCornerShape(4.dp)).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         supportingContent = supporting?.let { { Text(it) } },
         leadingContent = icon?.let {
             {
