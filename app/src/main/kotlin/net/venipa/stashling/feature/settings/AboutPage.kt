@@ -40,6 +40,8 @@ import net.venipa.stashling.ds.TonalGroup
 import net.venipa.stashling.feature.common.openLink
 
 private const val SOURCE = "https://github.com/Venipa/stashling"
+private const val AUTHOR = "https://github.com/Venipa"
+private const val CONTRIBUTORS = "https://github.com/Venipa/stashling/graphs/contributors"
 private const val LICENCE = "https://www.gnu.org/licenses/gpl-3.0.html"
 
 /** About (medicatore's layout): hero with the app icon, Links, App facts, then the connected servers. */
@@ -84,6 +86,8 @@ internal fun AboutPage(onBack: () -> Unit) {
         SectionHeader(stringResource(R.string.about_links), Gutter.padding(top = 8.dp))
         TonalGroup(Gutter) {
             val external: @Composable () -> Unit = { Icon(StashlingIcons.OpenExternal, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
+            GroupRow(stringResource(R.string.about_author), supporting = stringResource(R.string.about_author_value), icon = StashlingIcons.Person, onClick = { openLink(context, AUTHOR) }, trailing = external)
+            GroupRow(stringResource(R.string.about_contributors), supporting = stringResource(R.string.about_contributors_value), icon = StashlingIcons.Person, onClick = { openLink(context, CONTRIBUTORS) }, trailing = external)
             GroupRow(stringResource(R.string.about_source), supporting = stringResource(R.string.about_source_host), icon = StashlingIcons.Browse, onClick = { openLink(context, SOURCE) }, trailing = external)
             GroupRow(stringResource(R.string.settings_licence), supporting = stringResource(R.string.settings_licence_value), icon = StashlingIcons.Info, onClick = { openLink(context, LICENCE) }, trailing = external)
         }
