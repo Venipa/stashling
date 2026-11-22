@@ -61,6 +61,8 @@ abstract class StashlingDatabase : RoomDatabase() {
 
     abstract fun hidden(): HiddenDao
 
+    abstract fun backup(): BackupDao
+
     companion object {
         /** File name is fixed: data_extraction_rules.xml keeps it (and -wal/-shm) out of backup. */
         const val NAME = "stashling.db"

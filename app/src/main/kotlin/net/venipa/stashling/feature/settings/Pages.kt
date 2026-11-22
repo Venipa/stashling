@@ -213,14 +213,3 @@ internal fun StoragePage(onBack: () -> Unit) {
         }
     }
 }
-
-@Composable
-internal fun AboutPage(onBack: () -> Unit) {
-    SettingsPage(stringResource(R.string.settings_about), onBack) {
-        TonalGroup(Gutter) {
-            GroupRow(stringResource(R.string.app_name), supporting = stringResource(R.string.settings_about_version, BuildConfig.VERSION_NAME))
-            GroupRow(stringResource(R.string.settings_licence), supporting = stringResource(R.string.settings_licence_value))
-        }
-        Text(stringResource(R.string.settings_about_body), Gutter, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-    }
-}

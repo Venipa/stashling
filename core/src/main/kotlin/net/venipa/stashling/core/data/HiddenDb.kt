@@ -6,10 +6,12 @@ import androidx.room.Query
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.Serializable
 
 enum class HiddenKind { SCENE, PERFORMER }
 
 /** A scene or performer the user swiped away on Home; managed (unhidden) in Settings. */
+@Serializable
 data class Hidden(val kind: HiddenKind, val stashId: String, val name: String, val imageUrl: String?, val hiddenAt: Long)
 
 /** Ids to filter scene lists with: a scene is hidden when its id or any of its performer ids is in here. */

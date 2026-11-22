@@ -43,6 +43,7 @@ class AppContainer(context: Context) {
     private val db by lazy { StashlingDatabase.open(context) }
     val bookmarks: BookmarkRepository by lazy { RoomBookmarkRepository(db.bookmarks()) }
     val hidden: HiddenRepository by lazy { HiddenRepository(db.hidden()) }
+    val backup by lazy { net.venipa.stashling.core.data.BackupRepository(db.backup(), bookmarks, hidden, settings, secrets) }
 
     /** Hidden ids for the scene list filters, loaded at start so lists never flash hidden scenes. */
     val hiddenIds: StateFlow<HiddenIds> by lazy { hidden.ids().stateIn(appScope, SharingStarted.Eagerly, HiddenIds()) }

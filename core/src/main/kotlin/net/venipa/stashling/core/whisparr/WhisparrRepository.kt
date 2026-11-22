@@ -23,6 +23,9 @@ class WhisparrRepository(
     private val settings: SettingsStore,
     private val now: () -> Instant = { Clock.System.now() },
 ) {
+    /** For About: the server version. */
+    suspend fun status(): SystemStatus = api.status()
+
     /**
      * Library first (`movie?stashId=`), else metadata lookup. Pass the id of a running search
      * ([PanelState.Searching.commandId]) so the panel stays in Searching until the command ends.

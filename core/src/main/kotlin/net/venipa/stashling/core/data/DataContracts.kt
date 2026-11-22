@@ -6,6 +6,7 @@ import kotlinx.serialization.Serializable
 
 enum class BookmarkKind { SCENE, PERFORMER, STUDIO, TAG }
 
+@Serializable
 data class Bookmark(val kind: BookmarkKind, val stashId: String, val title: String, val subtitle: String?, val imageUrl: String?, val addedAt: Long)
 
 interface BookmarkRepository {
@@ -48,6 +49,7 @@ enum class ListMode { CARDS, ROWS }
 enum class PerformerGender { FEMALE, MALE, BOTH }
 
 /** The built-in "Default" preset (stored in the original keys, so existing values stay); [tagIds] = Whisparr tag ids. */
+@Serializable
 data class WhisparrDefaults(val rootFolder: String?, val qualityProfileId: Int?, val monitor: String = "movieOnly", val searchOnAdd: Boolean = true, val tagIds: List<Int> = emptyList())
 
 /** A named set of add options. The Default one ([DEFAULT_PRESET_ID]) is [Settings.whisparr]; the others are [Settings.presets]. */
@@ -72,6 +74,7 @@ fun WhisparrDefaults.asPreset(name: String = "Default") = WhisparrPreset(DEFAULT
 
 fun WhisparrPreset.asDefaults() = WhisparrDefaults(rootFolder, qualityProfileId, monitor, searchOnAdd, whisparrTagIds)
 
+@Serializable
 data class Settings(
     val theme: ThemeMode = ThemeMode.SYSTEM,
     val oledBlack: Boolean = false,

@@ -96,6 +96,7 @@ fun SettingsScreen(
                         onClick = { onOpen(SettingsSection.Hidden) },
                     )
                     GroupRow(stringResource(R.string.settings_storage), supporting = stringResource(R.string.settings_storage_value), icon = StashlingIcons.ClearCache, onClick = { onOpen(SettingsSection.Storage) })
+                    GroupRow(stringResource(R.string.settings_backup), supporting = stringResource(R.string.settings_backup_value), icon = StashlingIcons.Upload, onClick = { onOpen(SettingsSection.Backup) })
                     GroupRow(stringResource(R.string.settings_about), supporting = stringResource(R.string.settings_about_value, net.venipa.stashling.BuildConfig.VERSION_NAME), icon = StashlingIcons.Info, onClick = { onOpen(SettingsSection.About) })
                 }
             }
@@ -114,6 +115,8 @@ fun SettingsScreen(
         SettingsSection.Hidden -> HiddenPage(hidden, onBack)
 
         SettingsSection.Storage -> StoragePage(onBack)
+
+        SettingsSection.Backup -> BackupPage(onBack)
 
         SettingsSection.About -> AboutPage(onBack)
     }
