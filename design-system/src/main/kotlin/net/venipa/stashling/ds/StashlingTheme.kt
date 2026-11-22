@@ -141,6 +141,15 @@ private fun ColorScheme.oled(): ColorScheme = copy(
     surface = Color.Black,
     surfaceContainerLowest = Color.Black,
     surfaceDim = Color.Black,
-    surfaceContainerLow = Color(0xFF0B0A0E),
-    surfaceContainer = Color(0xFF131116),
+    // Neutral greys for every container and variant role: the scheme's tinted (blue/violet/dynamic) layers must not show on OLED.
+    surfaceContainerLow = Color(0xFF0A0A0A),
+    surfaceContainer = Color(0xFF121212),
+    surfaceContainerHigh = Color(0xFF1A1A1A),
+    surfaceContainerHighest = Color(0xFF242424),
+    surfaceBright = Color(0xFF2A2A2A),
+    surfaceVariant = Color(0xFF1A1A1A),
+    // Tonal elevation overlays surfaceTint; black keeps raised surfaces neutral.
+    surfaceTint = Color.Black,
+    // The dock's glass takes a hint of secondaryContainer: neutral on OLED.
+    secondaryContainer = Color(0xFF262626),
 )
