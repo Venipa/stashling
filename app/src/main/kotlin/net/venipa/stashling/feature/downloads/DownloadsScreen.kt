@@ -7,6 +7,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,6 +31,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -46,6 +48,7 @@ import net.venipa.stashling.core.whisparr.HistoryItem
 import net.venipa.stashling.core.whisparr.QueueItem
 import net.venipa.stashling.core.whisparr.WhisparrScene
 import net.venipa.stashling.ds.CardTone
+import net.venipa.stashling.ds.CollapsingHeader
 import net.venipa.stashling.ds.ConfirmSheet
 import net.venipa.stashling.ds.EmptyState
 import net.venipa.stashling.ds.LoadingPill
@@ -58,8 +61,10 @@ import net.venipa.stashling.ds.StatusPill
 import net.venipa.stashling.ds.TonalCard
 import net.venipa.stashling.ds.groupItemShape
 import net.venipa.stashling.ds.readableWidth
+import net.venipa.stashling.ds.rememberCollapsingHeader
 import net.venipa.stashling.feature.common.LocalNetworkNotice
 import net.venipa.stashling.feature.common.SceneRowSkeleton
+import net.venipa.stashling.feature.common.StashTopBar
 import net.venipa.stashling.feature.common.localNetworkMissing
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.feature.detail.whisparr.QueueProgress
@@ -67,12 +72,11 @@ import net.venipa.stashling.feature.detail.whisparr.queueLabel
 import net.venipa.stashling.nav.LocalDockInset
 import net.venipa.stashling.nav.LocalNavigator
 import net.venipa.stashling.nav.SceneDetailRoute
-import net.venipa.stashling.nav.SettingsAction
 
 /** Downloads tab: Queue | History. Polls only while visible. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun DownloadsScreen() {
+fun DownloadsScreen(librarySwitch: (@Composable () -> Unit)? = null) {
     val container = LocalAppContainer.current
     val vm: DownloadsViewModel = tabViewModel { DownloadsViewModel(container) }
     val refreshing by vm.refreshing.collectAsStateWithLifecycle()
@@ -93,8 +97,15 @@ fun DownloadsScreen() {
     val open: (WhisparrScene?) -> Unit = { scene -> scene?.let { nav.push(SceneDetailRoute(it.stashId ?: it.foreignId)) } }
     var confirm by remember { mutableStateOf<Pair<QueueItem, Boolean>?>(null) }
 
+    val header = rememberCollapsingHeader()
     Scaffold(
-        topBar = { TopAppBar({ Text(stringResource(R.string.downloads_title)) }, actions = { SettingsAction() }) },
+        Modifier.nestedScroll(header.connection),
+        topBar = {
+            CollapsingHeader(header) {
+                StashTopBar(stringResource(R.string.nav_library))
+                librarySwitch?.invoke()
+            }
+        },
     ) { padding ->
         val dock = LocalDockInset.current
         Box(Modifier.fillMaxSize()) {

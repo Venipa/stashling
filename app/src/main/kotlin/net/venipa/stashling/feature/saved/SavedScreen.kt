@@ -20,6 +20,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
@@ -39,11 +40,13 @@ import net.venipa.stashling.core.data.Bookmark
 import net.venipa.stashling.core.data.BookmarkKind
 import net.venipa.stashling.core.stash.PerformerFilter
 import net.venipa.stashling.core.stash.StudioFilter
+import net.venipa.stashling.ds.CollapsingHeader
 import net.venipa.stashling.ds.ConfirmSheet
 import net.venipa.stashling.ds.EmptyState
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
+import net.venipa.stashling.ds.rememberCollapsingHeader
 import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.PagedGrid
 import net.venipa.stashling.feature.common.PosterSkeleton
@@ -53,7 +56,6 @@ import net.venipa.stashling.feature.common.labelRes
 import net.venipa.stashling.feature.common.listPadding
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.nav.LocalDockInset
-import net.venipa.stashling.nav.SettingsAction
 
 class SavedViewModel(private val c: AppContainer) : ViewModel() {
     val kind = MutableStateFlow(BookmarkKind.SCENE)
@@ -108,6 +110,7 @@ fun SavedScreen(
     onOpenPerformer: (String) -> Unit,
     onOpenStudio: (String) -> Unit,
     onOpenTag: (String) -> Unit,
+    librarySwitch: (@Composable () -> Unit)? = null,
 ) {
     val c = LocalAppContainer.current
     val vm = tabViewModel { SavedViewModel(c) }
@@ -125,10 +128,13 @@ fun SavedScreen(
         }
     }
 
+    val header = rememberCollapsingHeader()
     Scaffold(
+        Modifier.nestedScroll(header.connection),
         topBar = {
-            Column {
-                StashTopBar(stringResource(R.string.nav_saved), actions = { SettingsAction() })
+            CollapsingHeader(header) {
+                StashTopBar(stringResource(R.string.nav_library))
+                librarySwitch?.invoke()
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Space.L, vertical = Space.Xs), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
                     BookmarkKind.entries.forEach { k -> FilterChip(k == kind, { vm.selectKind(k) }, { Text(stringResource(k.labelRes())) }) }
                 }

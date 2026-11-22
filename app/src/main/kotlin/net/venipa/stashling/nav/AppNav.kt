@@ -51,11 +51,10 @@ import net.venipa.stashling.feature.detail.PerformerDetailScreen
 import net.venipa.stashling.feature.detail.SceneDetailScreen
 import net.venipa.stashling.feature.detail.StudioDetailScreen
 import net.venipa.stashling.feature.detail.TagDetailScreen
-import net.venipa.stashling.feature.downloads.DownloadsScreen
 import net.venipa.stashling.feature.gallery.GalleryScreen
 import net.venipa.stashling.feature.home.HomeScreen
+import net.venipa.stashling.feature.library.LibraryScreen
 import net.venipa.stashling.feature.onboarding.OnboardingScreen
-import net.venipa.stashling.feature.saved.SavedScreen
 import net.venipa.stashling.feature.settings.SettingsScreen
 
 private const val PUSHED = "pushed"
@@ -90,7 +89,6 @@ fun AppNav(
         backStack.clear()
         backStack.add(key)
     }
-    LaunchedEffect(hasDownloads) { if (!hasDownloads && backStack.lastOrNull() == DownloadsRoute) goTab(HomeRoute) }
     LaunchedEffect(deepLinkScene) {
         deepLinkScene?.let {
             goTab(HomeRoute)
@@ -101,13 +99,13 @@ fun AppNav(
     // A tab root other than Home: back goes Home; on Home the system closes the app.
     BackHandler(enabled = backStack.size == 1 && backStack.last() != HomeRoute) { goTab(HomeRoute) }
 
-    val tabKeys = remember(hasDownloads) { listOfNotNull(HomeRoute, BrowseRoute, SavedRoute, DownloadsRoute.takeIf { hasDownloads }) }
+    val tabKeys = remember { listOf(HomeRoute, BrowseRoute, LibraryRoute, SettingsTabRoute) }
     val tabs =
-        listOfNotNull(
+        listOf(
             DockTab(stringResource(R.string.nav_home), StashlingIcons.Home),
             DockTab(stringResource(R.string.nav_browse), StashlingIcons.Browse),
-            DockTab(stringResource(R.string.nav_saved), StashlingIcons.Saved),
-            DockTab(stringResource(R.string.nav_downloads), StashlingIcons.Download).takeIf { hasDownloads },
+            DockTab(stringResource(R.string.nav_library), StashlingIcons.Saved),
+            DockTab(stringResource(R.string.nav_settings), StashlingIcons.Settings),
         )
     val glass = rememberGlassState()
     val showDock = backStack.size == 1
@@ -136,14 +134,14 @@ fun AppNav(
                 entryProvider {
                     entry<HomeRoute> { HomeScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }) }
                     entry<BrowseRoute> { BrowseScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
-                    entry<SavedRoute> { SavedScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
-                    entry<DownloadsRoute> { DownloadsScreen() }
+                    entry<LibraryRoute> { LibraryScreen(hasDownloads, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
                     entry<SceneDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> SceneDetailScreen(r.id, onBack = navigator.pop, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("scene", r.id, i)) }) }
                     entry<PerformerDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> PerformerDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("performer", r.id, i)) }) }
                     entry<StudioDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> StudioDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("studio", r.id, i)) }) }
                     entry<TagDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> TagDetailScreen(r.id, navigator.pop, onOpenScene = { navigator.push(SceneDetailRoute(it)) }) }
                     entry<GalleryRoute>(metadata = mapOf(PUSHED to true)) { GalleryScreen(it.kind, it.id, it.index, navigator.pop) }
                     // shell
+                    entry<SettingsTabRoute> { SettingsScreen(SettingsSection.Menu, onBack = navigator.pop, tab = true, onOpen = { s -> navigator.push(SettingsRoute(s)) }, onRerun = { step -> navigator.push(OnboardingRoute(step)) }) }
                     entry<SettingsRoute>(metadata = mapOf(PUSHED to true)) { SettingsScreen(it.section, onBack = navigator.pop, onOpen = { s -> navigator.push(SettingsRoute(s)) }, onRerun = { step -> navigator.push(OnboardingRoute(step)) }) }
                     entry<OnboardingRoute>(metadata = mapOf(PUSHED to true)) { OnboardingScreen(only = it.only, onFinished = navigator.pop, onExit = navigator.pop) }
                 },

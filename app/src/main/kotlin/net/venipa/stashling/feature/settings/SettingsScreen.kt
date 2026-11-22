@@ -26,8 +26,10 @@ import net.venipa.stashling.ds.AppSnackbar
 import net.venipa.stashling.ds.GroupRow
 import net.venipa.stashling.ds.Gutter
 import net.venipa.stashling.ds.ScreenColumn
+import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
+import net.venipa.stashling.nav.LocalDockInset
 import net.venipa.stashling.nav.SettingsSection
 
 /** Settings: a menu of rows (icon, title, current value), each opening a pushed sub-page. [onRerun] 1 = StashDB, 2 = Whisparr onboarding step. */
@@ -37,6 +39,7 @@ fun SettingsScreen(
     onBack: () -> Unit,
     onOpen: (SettingsSection) -> Unit,
     onRerun: (Int) -> Unit,
+    tab: Boolean = false,
 ) {
     val container = LocalAppContainer.current
     val settings by container.settings.settings.collectAsState(Settings())
@@ -52,7 +55,7 @@ fun SettingsScreen(
             )
             val on = stringResource(R.string.settings_on)
             val off = stringResource(R.string.settings_off)
-            SettingsPage(stringResource(R.string.settings_title), onBack) {
+            SettingsPage(stringResource(R.string.settings_title), if (tab) null else onBack) {
                 TonalGroup(Gutter) {
                     GroupRow(stringResource(R.string.settings_appearance), supporting = theme, icon = StashlingIcons.Palette, onClick = { onOpen(SettingsSection.Appearance) })
                     GroupRow(
@@ -100,7 +103,7 @@ fun SettingsScreen(
 @Composable
 internal fun SettingsPage(
     title: String,
-    onBack: () -> Unit,
+    onBack: (() -> Unit)?,
     snackbar: SnackbarHostState? = null,
     content: @Composable ColumnScope.() -> Unit,
 ) {
@@ -110,10 +113,10 @@ internal fun SettingsPage(
         topBar = {
             MediumTopAppBar(
                 { Text(title) },
-                navigationIcon = { IconButton(onBack) { Icon(StashlingIcons.Back, stringResource(R.string.settings_back)) } },
+                navigationIcon = { onBack?.let { b -> IconButton(b) { Icon(StashlingIcons.Back, stringResource(R.string.settings_back)) } } },
                 scrollBehavior = scroll,
             )
         },
         snackbarHost = { snackbar?.let { SnackbarHost(it) { d -> AppSnackbar(d) } } },
-    ) { padding: PaddingValues -> ScreenColumn(padding, content = content) }
+    ) { padding: PaddingValues -> ScreenColumn(padding, bottom = Space.L + LocalDockInset.current, content = content) }
 }

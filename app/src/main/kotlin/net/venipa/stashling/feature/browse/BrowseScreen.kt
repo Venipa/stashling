@@ -28,6 +28,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
@@ -39,9 +40,11 @@ import net.venipa.stashling.core.stash.NameSort
 import net.venipa.stashling.core.stash.PerformerSort
 import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.SortDirection
+import net.venipa.stashling.ds.CollapsingHeader
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.fieldColors
+import net.venipa.stashling.ds.rememberCollapsingHeader
 import net.venipa.stashling.ds.stableFieldHeight
 import net.venipa.stashling.feature.common.ListModeToggle
 import net.venipa.stashling.feature.common.PagedGrid
@@ -53,7 +56,6 @@ import net.venipa.stashling.feature.common.listPadding
 import net.venipa.stashling.feature.common.rememberSceneListMode
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.nav.LocalDockInset
-import net.venipa.stashling.nav.SettingsAction
 
 private enum class Sheet { Sort, Tags, Studio, Performer, Date, Favorites, Category }
 
@@ -103,12 +105,13 @@ fun BrowseScreen(
     var text by rememberSaveable { mutableStateOf(vm.query.value) }
     var sheet by remember { mutableStateOf<Sheet?>(null) }
 
+    val header = rememberCollapsingHeader()
     Scaffold(
+        Modifier.nestedScroll(header.connection),
         topBar = {
-            Column {
+            CollapsingHeader(header) {
                 StashTopBar(stringResource(R.string.nav_browse), actions = {
                     if (kind == BrowseKind.Scenes) ListModeToggle(mode)
-                    SettingsAction()
                 })
                 TextField(
                     text,

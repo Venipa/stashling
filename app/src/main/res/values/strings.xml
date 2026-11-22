@@ -5,6 +5,7 @@
     <string name="nav_home">Home</string>
     <string name="nav_browse">Browse</string>
     <string name="nav_saved">Saved</string>
+    <string name="nav_library">Library</string>
     <string name="nav_downloads">Downloads</string>
     <string name="nav_settings">Settings</string>
 
@@ -140,4 +141,7 @@
     <string name="onboarding_verifying">Verifying…</string>
     <string name="onboarding_connecting">Connecting…</string>
     <string name="whisparr_searching_releases">Searching indexers</string>
+    <string name="home_region_all">All</string>
+    <string name="home_region_jav">JAV</string>
+    <string name="home_region_western">Western</string>
 </resources>

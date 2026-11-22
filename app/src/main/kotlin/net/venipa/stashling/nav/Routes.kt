@@ -8,9 +8,10 @@ import kotlinx.serialization.Serializable
 
 @Serializable data object BrowseRoute : NavKey
 
-@Serializable data object SavedRoute : NavKey
+@Serializable data object LibraryRoute : NavKey
 
-@Serializable data object DownloadsRoute : NavKey
+/** The Settings menu as a tab root; its sub-pages are pushed [SettingsRoute]s. */
+@Serializable data object SettingsTabRoute : NavKey
 
 // Pushed routes (dock hidden). Ids are StashDB uuids.
 
