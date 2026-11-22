@@ -5,10 +5,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.FlowPreview
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.debounce
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import net.venipa.stashling.R
@@ -23,6 +27,11 @@ import net.venipa.stashling.core.stash.Tag
 import net.venipa.stashling.core.stash.TagCategory
 import net.venipa.stashling.core.stash.TagFilter
 import net.venipa.stashling.feature.common.PageLoader
+import net.venipa.stashling.feature.common.Region
+import net.venipa.stashling.feature.common.javTagId
+import net.venipa.stashling.feature.common.withRegion
+
+private const val SUGGEST = 4
 
 enum class BrowseKind(val label: Int) {
     Scenes(R.string.browse_kind_scenes),
@@ -36,7 +45,25 @@ data class Filters(
     val performer: PerformerFilter = PerformerFilter(),
     val studio: StudioFilter = StudioFilter(),
     val tag: TagFilter = TagFilter(),
+    val region: Region = Region.All,
 )
+
+/** Non-default filters of [kind] (the filter button badge). */
+fun Filters.activeCount(kind: BrowseKind): Int = when (kind) {
+    BrowseKind.Scenes -> {
+        val d = SceneFilter()
+        listOf(scene.sort != d.sort || scene.direction != d.direction, scene.studioIds.isNotEmpty(), scene.performerIds.isNotEmpty(), scene.tagIds.isNotEmpty(), scene.date != null, scene.favorites != null, region != Region.All)
+    }
+
+    BrowseKind.Performers -> listOf(performer.sort != PerformerFilter().sort || performer.direction != PerformerFilter().direction, performer.favoritesOnly)
+
+    BrowseKind.Studios -> listOf(studio.sort != StudioFilter().sort || studio.direction != StudioFilter().direction, studio.favoritesOnly)
+
+    BrowseKind.Tags -> listOf(tag.sort != TagFilter().sort || tag.direction != TagFilter().direction, tag.categoryId != null)
+}.count { it }
+
+/** Search-pill suggestions: a few rows per kind. */
+data class Suggestions(val performers: List<PickItem>, val studios: List<PickItem>, val tags: List<PickItem>)
 
 private data class Spec(val kind: BrowseKind, val query: String, val filter: Any)
 
@@ -48,6 +75,13 @@ class BrowseViewModel(private val stash: CachingStashDbApi) : ViewModel() {
     /** Names for the ids held in the scene filter (chip labels). */
     val labels = MutableStateFlow<Map<String, String>>(emptyMap())
     val categories = MutableStateFlow<List<TagCategory>>(emptyList())
+    val javTag = MutableStateFlow<String?>(null)
+
+    /** null = typing / empty query. */
+    val suggestions = MutableStateFlow<Suggestions?>(null)
+
+    // shortcut: recents live in this activity-scoped VM (lost on process death); move to Settings once core has the field.
+    val recents = MutableStateFlow<List<String>>(emptyList())
 
     // The first reload comes from the spec collector below.
     val scenes = PageLoader<SceneCard>(viewModelScope, { it.id }) { p -> stash.scenes(SceneFilter(), p) }
@@ -56,16 +90,31 @@ class BrowseViewModel(private val stash: CachingStashDbApi) : ViewModel() {
     val tags = PageLoader<Tag>(viewModelScope, { it.id }) { p -> stash.tags(TagFilter(), p) }
 
     init {
+        viewModelScope.launch { javTag.value = javTagId(stash) }
+        viewModelScope.launch {
+            @OptIn(FlowPreview::class)
+            query.debounce(400).map { it.trim() }.distinctUntilChanged().collectLatest { q ->
+                suggestions.value = null
+                if (q.isNotEmpty()) {
+                    suggestions.value = coroutineScope {
+                        val p = async { quiet { stash.searchPerformers(q, 1, SUGGEST).items.map { PickItem(it.id, it.name, it.disambiguation) } } }
+                        val s = async { quiet { stash.studios(StudioFilter(names = q), 1, SUGGEST).items.map { PickItem(it.id, it.name, it.parent?.name) } } }
+                        val t = async { quiet { stash.tags(TagFilter(names = q), 1, SUGGEST).items.map { PickItem(it.id, it.name, it.category) } } }
+                        Suggestions(p.await(), s.await(), t.await())
+                    }
+                }
+            }
+        }
         viewModelScope.launch {
             // 400 ms after the last keystroke; clearing the box searches at once.
             @OptIn(FlowPreview::class)
             val q = query.debounce { if (it.isEmpty()) 0L else 400L }.distinctUntilChanged()
-            combine(kind, q, filters) { k, text, f ->
+            combine(kind, q, filters, javTag) { k, text, f, jav ->
                 Spec(
                     k,
                     text.trim(),
                     when (k) {
-                        BrowseKind.Scenes -> f.scene
+                        BrowseKind.Scenes -> f.scene.withRegion(f.region, jav)
                         BrowseKind.Performers -> f.performer
                         BrowseKind.Studios -> f.studio
                         BrowseKind.Tags -> f.tag
@@ -116,6 +165,30 @@ class BrowseViewModel(private val stash: CachingStashDbApi) : ViewModel() {
     }
 
     fun update(transform: (Filters) -> Filters) = filters.update(transform)
+
+    fun reset(kind: BrowseKind) = filters.update {
+        when (kind) {
+            BrowseKind.Scenes -> it.copy(scene = SceneFilter(), region = Region.All)
+            BrowseKind.Performers -> it.copy(performer = PerformerFilter())
+            BrowseKind.Studios -> it.copy(studio = StudioFilter())
+            BrowseKind.Tags -> it.copy(tag = TagFilter())
+        }
+    }
+
+    /** Last 10, newest first, case-insensitive unique. */
+    fun addRecent(q: String) {
+        val t = q.trim()
+        if (t.isNotEmpty()) recents.update { (listOf(t) + it.filterNot { r -> r.equals(t, true) }).take(10) }
+    }
+
+    // A failed suggestion group is just empty; the grid shows the real error.
+    private suspend fun quiet(block: suspend () -> List<PickItem>) = try {
+        block()
+    } catch (e: CancellationException) {
+        throw e
+    } catch (_: Exception) {
+        emptyList()
+    }
 
     fun label(id: String, name: String) = labels.update { it + (id to name) }
 

@@ -10,7 +10,8 @@ import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import net.venipa.stashling.core.data.SettingsStore
-import net.venipa.stashling.core.data.WhisparrDefaults
+import net.venipa.stashling.core.data.TagRule
+import net.venipa.stashling.core.data.WhisparrPreset
 import kotlin.coroutines.cancellation.CancellationException
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -36,19 +37,26 @@ class WhisparrRepository(
         }
     }
 
+    /** The preset an add of a scene with these StashDB tag ids uses, and the rule that picked it (null = Default). */
+    suspend fun resolvePreset(sceneTagIds: Collection<String>): Pair<WhisparrPreset, TagRule?> = settings.settings.first().resolvePreset(sceneTagIds)
+
+    /** Adds with the preset resolved from [sceneTagIds], or [presetOverride] (a preset id) for this add only. */
     suspend fun add(
         stashId: String,
         mode: AddMode,
+        sceneTagIds: Collection<String> = emptyList(),
+        presetOverride: String? = null,
     ): PanelState = guard {
-        val defaults = settings.settings.first().whisparr
-        if (defaults.rootFolder == null || defaults.qualityProfileId == null) {
-            return@guard PanelState.Error("Choose a root folder and quality profile in Settings → Whisparr")
+        val s = settings.settings.first()
+        val preset = presetOverride?.let { id -> s.allPresets.firstOrNull { it.id == id } } ?: s.resolvePreset(sceneTagIds).first
+        if (preset.rootFolder == null || preset.qualityProfileId == null) {
+            return@guard PanelState.Error("Choose a root folder and quality profile for preset \"${preset.name}\" in Settings → Whisparr → Presets")
         }
         val lookup =
             api.lookupScene(stashId).firstNotNullOfOrNull { it.movie }
                 ?: return@guard PanelState.Error("Whisparr can't find this scene in its metadata")
         if ((lookup["id"]?.jsonPrimitive?.intOrNull ?: 0) > 0) return@guard panelState(stashId) // already added elsewhere
-        val scene = api.addMovie(addMovieBody(lookup, defaults))
+        val scene = api.addMovie(addMovieBody(lookup, preset))
         // Search is a separate command (not addOptions.searchForMovie) so the panel gets a command id to follow.
         if (mode == AddMode.QUEUE) searching(scene) else PanelState.Missing(scene)
     }
@@ -148,21 +156,21 @@ internal fun derivePanelState(
     }
 }
 
-/** Same shape the Whisparr web UI posts (frontend/src/Utilities/Movie/getNewMovie.js): lookup result + overrides, id 0. */
+/** Same shape the Whisparr web UI posts (frontend/src/Utilities/Movie/getNewMovie.js): lookup result + overrides, id 0; tags = lookup's + the preset's. */
 internal fun addMovieBody(
     lookup: JsonObject,
-    defaults: WhisparrDefaults,
+    preset: WhisparrPreset,
 ): JsonObject = JsonObject(
     lookup +
         mapOf(
             "id" to JsonPrimitive(0),
             "monitored" to JsonPrimitive(true),
-            "qualityProfileId" to JsonPrimitive(requireNotNull(defaults.qualityProfileId)),
-            "rootFolderPath" to JsonPrimitive(requireNotNull(defaults.rootFolder)),
-            "tags" to (lookup["tags"] as? JsonArray ?: JsonArray(emptyList())),
+            "qualityProfileId" to JsonPrimitive(requireNotNull(preset.qualityProfileId)),
+            "rootFolderPath" to JsonPrimitive(requireNotNull(preset.rootFolder)),
+            "tags" to JsonArray(((lookup["tags"] as? JsonArray).orEmpty().mapNotNull { it.jsonPrimitive.intOrNull } + preset.whisparrTagIds).distinct().map(::JsonPrimitive)),
             "addOptions" to
                 buildJsonObject {
-                    put("monitor", defaults.monitor)
+                    put("monitor", preset.monitor)
                     put("searchForMovie", false)
                 },
         ),

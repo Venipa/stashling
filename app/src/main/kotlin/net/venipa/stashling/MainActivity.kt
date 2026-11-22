@@ -18,7 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.fragment.app.FragmentActivity
 import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.data.ThemeMode
-import net.venipa.stashling.ds.StashlingTheme
+import net.venipa.stashling.ds.RevealingStashlingTheme
 import net.venipa.stashling.feature.lock.LockOverlay
 import net.venipa.stashling.nav.AppNav
 import net.venipa.stashling.ds.ThemeMode as DsThemeMode
@@ -41,7 +41,7 @@ class MainActivity : FragmentActivity() {
                 if (settings.secureScreen) window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE) else window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
             }
             CompositionLocalProvider(LocalAppContainer provides container) {
-                StashlingTheme(
+                RevealingStashlingTheme(
                     themeMode = when (settings.theme) {
                         ThemeMode.LIGHT -> DsThemeMode.LIGHT
                         ThemeMode.DARK -> DsThemeMode.DARK

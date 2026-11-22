@@ -2,6 +2,7 @@ package net.venipa.stashling.feature.detail.whisparr
 
 import android.text.format.DateUtils
 import android.text.format.Formatter
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -14,7 +15,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
+import androidx.compose.material3.ListItem
+import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
@@ -22,10 +28,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
@@ -60,6 +68,7 @@ import net.venipa.stashling.ds.TonalCard
 import net.venipa.stashling.ds.concentric
 import net.venipa.stashling.ds.concentricShape
 import net.venipa.stashling.ds.groupItemShape
+import net.venipa.stashling.ds.sheetTitle
 import net.venipa.stashling.feature.common.LocalNetworkNotice
 import net.venipa.stashling.feature.common.localNetworkMissing
 
@@ -76,6 +85,8 @@ fun WhisparrPanel(
     val noRelease by vm.noRelease.collectAsStateWithLifecycle()
     val busy by vm.busy.collectAsStateWithLifecycle()
     val releases by vm.releases.collectAsStateWithLifecycle()
+    val preset by vm.preset.collectAsStateWithLifecycle()
+    var presetSheet by remember { mutableStateOf(false) }
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     // Polls only while visible.
     LaunchedEffect(vm, lifecycle) { lifecycle.repeatOnLifecycle(Lifecycle.State.STARTED) { vm.poll() } }
@@ -95,6 +106,7 @@ fun WhisparrPanel(
 
             is PanelState.NotInLibrary -> {
                 if (s.excluded) Text(stringResource(R.string.whisparr_excluded), style = MaterialTheme.typography.bodyMedium)
+                preset?.let { PresetLine(it, enabled = !busy) { presetSheet = true } }
                 val add = PanelButton(stringResource(R.string.whisparr_add), { vm.add(AddMode.REQUEST) }, tonal = searchOnAdd)
                 val addSearch = PanelButton(stringResource(R.string.whisparr_add_and_search), { vm.add(AddMode.QUEUE) }, tonal = !searchOnAdd, icon = StashlingIcons.Search)
                 val pick = PanelButton(stringResource(R.string.whisparr_interactive_search), { vm.add(AddMode.PICK) }, tonal = true)
@@ -135,6 +147,59 @@ fun WhisparrPanel(
         }
     }
     releases?.let { ReleaseSheet(it, onGrab = vm::grab, onDismiss = vm::closeReleases) }
+    preset?.takeIf { presetSheet }?.let { choice ->
+        PresetSheet(choice, onPick = {
+            vm.overridePreset(it)
+            presetSheet = false
+        }, onDismiss = { presetSheet = false })
+    }
+}
+
+/** 5A: "Preset: X ▾" chip and why it applies; tapping picks another preset for this add only. */
+@Composable
+private fun PresetLine(
+    choice: PresetChoice,
+    enabled: Boolean,
+    onClick: () -> Unit,
+) = Column {
+    AssistChip(
+        onClick,
+        { Text(stringResource(R.string.whisparr_preset_chip, choice.preset.name), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+        enabled = enabled,
+        // 20dp in from the 28dp hero corner.
+        shape = concentricShape(HeroCardRadius, 20.dp),
+        trailingIcon = { Icon(StashlingIcons.ArrowDropDown, null, Modifier.size(AssistChipDefaults.IconSize)) },
+    )
+    val reason =
+        when {
+            choice.overridden -> stringResource(R.string.whisparr_preset_chosen)
+            choice.rule != null -> stringResource(R.string.whisparr_preset_matched, choice.rule.stashTagName)
+            else -> stringResource(R.string.whisparr_preset_default)
+        }
+    Text(reason, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+}
+
+@Composable
+private fun PresetSheet(
+    choice: PresetChoice,
+    onPick: (String) -> Unit,
+    onDismiss: () -> Unit,
+) = AppBottomSheet(onDismiss) {
+    Column(Modifier.padding(horizontal = Space.L).padding(bottom = Space.L).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(Space.S)) {
+        Text(stringResource(R.string.whisparr_preset_sheet_title), style = sheetTitle)
+        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+            choice.all.forEachIndexed { i, p ->
+                val selected = p.id == choice.preset.id
+                ListItem(
+                    { Text(p.name) },
+                    Modifier.clip(groupItemShape(i, choice.all.size, outer = concentric(SheetRadius, Space.L))).clickable { onPick(p.id) },
+                    supportingContent = { Text(p.rootFolder ?: stringResource(R.string.settings_not_set), maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                    trailingContent = if (selected) ({ Icon(StashlingIcons.Check, null, tint = MaterialTheme.colorScheme.primary) }) else null,
+                    colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceContainer),
+                )
+            }
+        }
+    }
 }
 
 @Composable

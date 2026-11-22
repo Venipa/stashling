@@ -93,12 +93,14 @@ private val DarkScheme =
 /**
  * M3 Expressive theme: the Stashling violet/amber scheme, or Material You when [dynamicColor] is on.
  * [oledBlack] turns background and surfaces pure black whenever the dark scheme is active, system dark included.
+ * [systemBarsDark] overrides the bar icons' theme (the theme reveal keeps the old one until its circle covers the screen).
  */
 @Composable
 fun StashlingTheme(
     themeMode: ThemeMode = ThemeMode.SYSTEM,
     oledBlack: Boolean = false,
     dynamicColor: Boolean = false,
+    systemBarsDark: Boolean? = null,
     content: @Composable () -> Unit,
 ) {
     val dark =
@@ -119,11 +121,12 @@ fun StashlingTheme(
     val reduce = remember(context) { Settings.Global.getFloat(context.contentResolver, Settings.Global.ANIMATOR_DURATION_SCALE, 1f) == 0f }
     // System bar icons follow the app's theme, not the system's.
     val view = LocalView.current
+    val barsDark = systemBarsDark ?: dark
     SideEffect {
         val window = (view.context as? Activity)?.window ?: return@SideEffect
         WindowCompat.getInsetsController(window, view).apply {
-            isAppearanceLightStatusBars = !dark
-            isAppearanceLightNavigationBars = !dark
+            isAppearanceLightStatusBars = !barsDark
+            isAppearanceLightNavigationBars = !barsDark
         }
     }
     MaterialExpressiveTheme(colorScheme = scheme, motionScheme = MotionScheme.expressive()) {
@@ -144,12 +147,12 @@ private fun ColorScheme.oled(): ColorScheme = copy(
     surface = Color.Black,
     surfaceContainerLowest = Color.Black,
     surfaceDim = Color.Black,
-    surfaceContainerLow = lerp(Color.Black, surfaceContainerLow, OledLayer),
-    surfaceContainer = lerp(Color.Black, surfaceContainer, OledLayer),
-    surfaceContainerHigh = lerp(Color.Black, surfaceContainerHigh, OledLayer),
-    surfaceContainerHighest = lerp(Color.Black, surfaceContainerHighest, OledLayer),
-    surfaceBright = lerp(Color.Black, surfaceBright, OledLayer),
-    surfaceVariant = lerp(Color.Black, surfaceVariant, OledLayer),
+    surfaceContainerLow = lerp(Color.Black, surfaceContainerLow, OLED_LAYER),
+    surfaceContainer = lerp(Color.Black, surfaceContainer, OLED_LAYER),
+    surfaceContainerHigh = lerp(Color.Black, surfaceContainerHigh, OLED_LAYER),
+    surfaceContainerHighest = lerp(Color.Black, surfaceContainerHighest, OLED_LAYER),
+    surfaceBright = lerp(Color.Black, surfaceBright, OLED_LAYER),
+    surfaceVariant = lerp(Color.Black, surfaceVariant, OLED_LAYER),
 )
 
-private const val OledLayer = 0.7f
+private const val OLED_LAYER = 0.7f

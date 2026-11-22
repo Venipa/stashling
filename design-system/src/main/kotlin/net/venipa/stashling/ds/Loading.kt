@@ -48,6 +48,7 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.LayoutDirection
 import androidx.compose.ui.unit.dp
 import kotlinx.coroutines.delay
@@ -191,6 +192,8 @@ fun RefreshBox(
     isRefreshing: Boolean,
     onRefresh: () -> Unit,
     modifier: Modifier = Modifier,
+    // The list's top content padding, so the indicator lands below a header drawn over the list.
+    indicatorTop: Dp = 0.dp,
     content: @Composable BoxScope.() -> Unit,
 ) {
     val state = rememberPullToRefreshState()
@@ -199,7 +202,7 @@ fun RefreshBox(
         onRefresh,
         modifier,
         state,
-        indicator = { PullToRefreshDefaults.LoadingIndicator(state, isRefreshing, Modifier.align(Alignment.TopCenter)) },
+        indicator = { PullToRefreshDefaults.LoadingIndicator(state, isRefreshing, Modifier.align(Alignment.TopCenter).padding(top = indicatorTop)) },
         content = content,
     )
 }

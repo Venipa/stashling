@@ -56,6 +56,15 @@
     <string name="browse_fav_both">Both</string>
     <string name="browse_scenes_count">%1$d scenes</string>
 
+    <string name="browse_filters">Filters</string>
+    <string name="browse_region">Region</string>
+    <string name="browse_layout">Layout</string>
+    <string name="browse_layout_cards">Cards</string>
+    <string name="browse_layout_rows">Rows</string>
+    <string name="browse_recent">Recent searches</string>
+    <string name="browse_reset">Reset filters</string>
+    <string name="browse_no_category">Other</string>
+    <string name="library_downloading_open">Open downloads</string>
     <!-- detail -->
     <string name="detail_back">Back</string>
     <string name="detail_not_found">Not found on StashDB</string>

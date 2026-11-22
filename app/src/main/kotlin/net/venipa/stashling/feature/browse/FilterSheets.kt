@@ -51,7 +51,7 @@ import java.time.LocalDate
 private val SheetGroupOuter = 12.dp
 
 @Composable
-private fun SheetColumn(
+fun SheetColumn(
     title: String,
     content: @Composable ColumnScope.() -> Unit,
 ) = Column(Modifier.padding(horizontal = Space.L).padding(bottom = Space.L).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(Space.S)) {
@@ -60,7 +60,7 @@ private fun SheetColumn(
 }
 
 @Composable
-private fun SheetRow(
+internal fun SheetRow(
     label: String,
     supporting: String?,
     selected: Boolean,
@@ -75,27 +75,6 @@ private fun SheetRow(
         supporting?.let { Text(it, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
     }
     if (selected) Icon(StashlingIcons.Check, null, Modifier.size(24.dp), tint = MaterialTheme.colorScheme.primary)
-}
-
-/** Single choice; [onDirection] adds the Ascending | Descending switch (sort sheets). */
-@Composable
-fun OptionsSheet(
-    title: String,
-    options: List<String>,
-    selected: Int,
-    onSelect: (Int) -> Unit,
-    onDismiss: () -> Unit,
-    desc: Boolean = true,
-    onDirection: ((Boolean) -> Unit)? = null,
-) = AppBottomSheet(onDismiss) {
-    SheetColumn(title) {
-        onDirection?.let {
-            StashSegmented(listOf(stringResource(R.string.browse_ascending), stringResource(R.string.browse_descending)), if (desc) 1 else 0, { i -> it(i == 1) })
-        }
-        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-            options.forEachIndexed { i, o -> SheetRow(o, null, i == selected, groupShape(i, options.size, SheetGroupOuter)) { onSelect(i) } }
-        }
-    }
 }
 
 data class PickItem(val id: String, val title: String, val subtitle: String? = null, val group: String? = null)

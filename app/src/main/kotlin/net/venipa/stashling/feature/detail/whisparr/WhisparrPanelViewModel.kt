@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.filterNotNull
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
@@ -17,6 +18,9 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withTimeoutOrNull
 import net.venipa.stashling.AppContainer
+import net.venipa.stashling.core.data.TagRule
+import net.venipa.stashling.core.data.WhisparrPreset
+import net.venipa.stashling.core.stash.StashError
 import net.venipa.stashling.core.whisparr.AddMode
 import net.venipa.stashling.core.whisparr.PanelState
 import net.venipa.stashling.core.whisparr.Release
@@ -37,6 +41,14 @@ data class ReleasesUi(
     val startedAt: Long = System.currentTimeMillis(),
 )
 
+/** [rule] = the rule that matched (null = Default, or [overridden]). */
+data class PresetChoice(
+    val preset: WhisparrPreset,
+    val rule: TagRule?,
+    val overridden: Boolean,
+    val all: List<WhisparrPreset>,
+)
+
 class WhisparrPanelViewModel(
     private val stashId: String,
     private val container: AppContainer,
@@ -44,11 +56,43 @@ class WhisparrPanelViewModel(
     private val _state = MutableStateFlow<PanelState>(PanelState.Loading)
     val state: StateFlow<PanelState> = _state.asStateFlow()
 
-    /** Settings → Whisparr "search on add": which add button is the filled one. */
+    /** The scene's StashDB tag ids (cached scene call); null while loading. */
+    private val sceneTags = MutableStateFlow<List<String>?>(null)
+
+    /** A preset picked on the card for this add only (5A). */
+    private val override = MutableStateFlow<String?>(null)
+
+    /** The preset the next add uses and why; null until the scene tags are in. */
+    val preset: StateFlow<PresetChoice?> =
+        combine(container.settings.settings, sceneTags, override) { s, tags, o ->
+            if (tags == null) return@combine null
+            val (resolved, rule) = s.resolvePreset(tags)
+            // Picking the resolved preset again is the same as no override.
+            val picked = o?.takeIf { it != resolved.id }?.let { id -> s.allPresets.firstOrNull { it.id == id } }
+            PresetChoice(picked ?: resolved, if (picked == null) rule else null, picked != null, s.allPresets)
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
+    /** The applied preset's "search on add": which add button is the filled one. */
     val searchOnAdd: StateFlow<Boolean> =
-        container.settings.settings
-            .map { it.whisparr.searchOnAdd }
+        preset
+            .map { it?.preset?.searchOnAdd ?: true }
             .stateIn(viewModelScope, SharingStarted.Eagerly, true)
+
+    init {
+        viewModelScope.launch {
+            // No tags (StashDB unreachable) resolves to Default; the card then says "Default".
+            sceneTags.value =
+                try {
+                    container.stash.scene(stashId)?.tags?.map { it.id }.orEmpty()
+                } catch (e: StashError) {
+                    emptyList()
+                }
+        }
+    }
+
+    fun overridePreset(id: String?) {
+        override.value = id
+    }
 
     /** A search just ended without a grab. Cleared by the next action. */
     private val _noRelease = MutableStateFlow(false)
@@ -110,7 +154,7 @@ class WhisparrPanelViewModel(
     }
 
     fun add(mode: AddMode) = action { repo ->
-        val next = repo.add(stashId, mode)
+        val next = repo.add(stashId, mode, sceneTags.filterNotNull().first(), override.value)
         apply(next)
         if (mode == AddMode.PICK && next is PanelState.Missing) openReleases(next.scene)
     }

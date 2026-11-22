@@ -10,9 +10,13 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.jsonObject
+import net.venipa.stashling.core.data.DEFAULT_PRESET_ID
 import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.data.SettingsStore
+import net.venipa.stashling.core.data.TagRule
 import net.venipa.stashling.core.data.WhisparrDefaults
+import net.venipa.stashling.core.data.WhisparrPreset
+import net.venipa.stashling.core.data.asPreset
 import org.junit.jupiter.api.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertIs
@@ -44,7 +48,7 @@ class WhisparrRepositoryTest {
 
     @Test
     fun `add body matches the web UI shape`() {
-        val body = addMovieBody(whisparrJson.parseToJsonElement(LOOKUP).jsonObject["movie"]!!.jsonObject, WhisparrDefaults("/data/scenes", 4))
+        val body = addMovieBody(whisparrJson.parseToJsonElement(LOOKUP).jsonObject["movie"]!!.jsonObject, WhisparrDefaults("/data/scenes", 4).asPreset())
         val expected =
             whisparrJson.parseToJsonElement(
                 """{"id":0,"title":"Some Scene","foreignId":"uuid-1","stashId":"uuid-1","tpdbId":null,"tmdbId":0,
@@ -52,6 +56,69 @@ class WhisparrRepositoryTest {
                 "rootFolderPath":"/data/scenes","tags":[],"addOptions":{"monitor":"movieOnly","searchForMovie":false}}""",
             )
         assertEquals(expected, body)
+    }
+
+    private val jav = WhisparrPreset("p-jav", "JAV 1080p", "/media/jav", 6, monitor = "none", searchOnAdd = false, whisparrTagIds = listOf(3, 5))
+    private val k4 = WhisparrPreset("p-4k", "Western 4K", "/media/4k", 8)
+    private val ruled =
+        Settings(
+            whisparr = WhisparrDefaults("/data/scenes", 4),
+            presets = listOf(jav, k4),
+            tagRules = listOf(TagRule("t-4k", "4K", "p-4k"), TagRule("t-jav", "JAV", "p-jav"), TagRule("t-gone", "Gone", "p-deleted")),
+        )
+
+    @Test
+    fun `preset resolution - first rule in list order wins, Default if none`() {
+        assertEquals(k4 to ruled.tagRules[0], ruled.resolvePreset(listOf("t-jav", "t-4k")))
+        assertEquals(jav to ruled.tagRules[1], ruled.resolvePreset(listOf("x", "t-jav")))
+        // A rule whose preset is gone is skipped.
+        assertEquals(DEFAULT_PRESET_ID to null, ruled.resolvePreset(listOf("t-gone")).let { it.first.id to it.second })
+        assertEquals(ruled.whisparr.asPreset() to null, ruled.resolvePreset(emptyList()))
+        // Deleting a preset points its rules at Default.
+        val after = ruled.withoutPreset("p-jav")
+        assertEquals(listOf(k4), after.presets)
+        assertEquals(DEFAULT_PRESET_ID, after.tagRules[1].presetId)
+        assertEquals(DEFAULT_PRESET_ID to after.tagRules[1], after.resolvePreset(listOf("t-jav")).let { it.first.id to it.second })
+    }
+
+    @Test
+    fun `add uses the resolved preset, or the override`() = runTest {
+        val bodies = mutableListOf<JsonObject>()
+        val engine =
+            MockEngine { req ->
+                val json = headersOf(HttpHeaders.ContentType, "application/json")
+                when (req.url.encodedPath) {
+                    "/api/v3/lookup/scene" -> respond("[${LOOKUP.replace("\"qualityProfileId\":0", "\"qualityProfileId\":0,\"tags\":[5,9]")}]", HttpStatusCode.OK, json)
+
+                    "/api/v3/movie" -> {
+                        bodies += whisparrJson.parseToJsonElement((req.body as TextContent).text).jsonObject
+                        respond("""{"id":7,"title":"Some Scene","foreignId":"uuid-1"}""", HttpStatusCode.Created, json)
+                    }
+
+                    else -> error("unexpected ${req.url}")
+                }
+            }
+        val repo = WhisparrRepository(KtorWhisparrApi(WhisparrClients.httpClient("key", engine), "h"), FakeSettings(ruled))
+        repo.add("uuid-1", AddMode.REQUEST, listOf("t-jav"))
+        repo.add("uuid-1", AddMode.REQUEST, listOf("t-jav"), presetOverride = DEFAULT_PRESET_ID)
+        val (byRule, overridden) = bodies
+        assertEquals("\"/media/jav\"", byRule["rootFolderPath"].toString())
+        assertEquals("6", byRule["qualityProfileId"].toString())
+        assertEquals("[5,9,3]", byRule["tags"].toString())
+        assertEquals("\"none\"", byRule["addOptions"]!!.jsonObject["monitor"].toString())
+        assertEquals("\"/data/scenes\"", overridden["rootFolderPath"].toString())
+        assertEquals("[5,9]", overridden["tags"].toString())
+    }
+
+    @Test
+    fun `create tag posts the label and reads the stored one`() = runTest {
+        val engine =
+            MockEngine { req ->
+                assertEquals("POST /api/v3/tag", "${req.method.value} ${req.url.encodedPath}")
+                assertEquals("""{"label":"My Tag"}""", (req.body as TextContent).text)
+                respond("""{"id":12,"label":"my tag"}""", HttpStatusCode.Created, headersOf(HttpHeaders.ContentType, "application/json"))
+            }
+        assertEquals(WhisparrTag(12, "my tag"), KtorWhisparrApi(WhisparrClients.httpClient("key", engine), "h").createTag("My Tag"))
     }
 
     @Test
@@ -155,6 +222,10 @@ class WhisparrRepositoryTest {
         override suspend fun rootFolders(): List<RootFolder> = TODO()
 
         override suspend fun qualityProfiles(): List<QualityProfile> = TODO()
+
+        override suspend fun tags(): List<WhisparrTag> = TODO()
+
+        override suspend fun createTag(label: String): WhisparrTag = TODO()
 
         override suspend fun lookupScene(stashId: String): List<SearchResult> = TODO()
 

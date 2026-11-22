@@ -104,6 +104,13 @@ data class QualityProfile(
     val name: String,
 )
 
+/** GET /api/v3/tag. */
+@Serializable
+data class WhisparrTag(
+    val id: Int,
+    val label: String,
+)
+
 @Serializable
 data class CommandRes(
     val id: Int,

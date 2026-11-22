@@ -58,7 +58,6 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
@@ -162,13 +161,21 @@ class SavedViewModel(private val c: AppContainer) : ViewModel() {
         viewModelScope.launch { list.forEach { c.bookmarks.add(it) } }
     }
 
-    /** Whisparr add with the Settings defaults ("search on add" picks the mode); the outcome goes to the snackbar. */
+    /** Whisparr add with the preset the scene's tags resolve to (its "search on add" picks the mode); the outcome goes to the snackbar. */
     fun addToWhisparr(stashId: String) {
         val repo = c.whisparr.value ?: return
         viewModelScope.launch {
-            val mode = if (c.settings.settings.first().whisparr.searchOnAdd) AddMode.QUEUE else AddMode.REQUEST
+            val tags =
+                try {
+                    c.stash.scene(stashId)?.tags?.map { it.id }.orEmpty()
+                } catch (e: net.venipa.stashling.core.stash.StashError) {
+                    // Without tags the add would silently fall back to Default: report instead.
+                    messages.emit(LibraryMessage(R.string.library_whisparr_error, e.message.orEmpty()))
+                    return@launch
+                }
+            val mode = if (repo.resolvePreset(tags).first.searchOnAdd) AddMode.QUEUE else AddMode.REQUEST
             val msg =
-                when (val s = repo.add(stashId, mode)) {
+                when (val s = repo.add(stashId, mode, tags)) {
                     is PanelState.Error -> LibraryMessage(R.string.library_whisparr_error, s.message)
                     is PanelState.Searching -> LibraryMessage(R.string.library_added_searching)
                     is PanelState.Missing -> LibraryMessage(R.string.library_added_whisparr)

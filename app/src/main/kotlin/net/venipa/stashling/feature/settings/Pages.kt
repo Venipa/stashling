@@ -21,6 +21,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
@@ -49,6 +50,7 @@ import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
 import net.venipa.stashling.ds.groupItemShape
+import net.venipa.stashling.ds.rememberRevealAnchor
 import net.venipa.stashling.feature.lock.authenticate
 import net.venipa.stashling.feature.lock.canAuthenticate
 
@@ -60,25 +62,32 @@ internal fun AppearancePage(
     val store = LocalAppContainer.current.settings
     val scope = rememberCoroutineScope()
     val themes = listOf(ThemeMode.LIGHT, ThemeMode.DARK, ThemeMode.SYSTEM)
+    val segAnchor = rememberRevealAnchor()
+    val oledAnchor = rememberRevealAnchor()
+    val dynAnchor = rememberRevealAnchor()
     SettingsPage(stringResource(R.string.settings_appearance), onBack) {
         StashSegmented(
             listOf(R.string.settings_theme_light, R.string.settings_theme_dark, R.string.settings_theme_system).map { stringResource(it) },
             themes.indexOf(settings.theme),
-            { i -> scope.launch { store.update { it.copy(theme = themes[i]) } } },
-            Gutter,
+            { i ->
+                // The circle starts at the tapped segment.
+                val b = segAnchor.bounds
+                segAnchor.reveal(Offset(b.left + b.width * (i + 0.5f) / themes.size, b.center.y)) { scope.launch { store.update { it.copy(theme = themes[i]) } } }
+            },
+            Gutter.then(segAnchor.modifier),
         )
         TonalGroup(Gutter) {
             GroupRow(
                 stringResource(R.string.settings_oled),
                 supporting = stringResource(R.string.settings_oled_body),
-                trailing = { Checkbox(settings.oledBlack, { v -> scope.launch { store.update { it.copy(oledBlack = v) } } }) },
-                onClick = { scope.launch { store.update { it.copy(oledBlack = !it.oledBlack) } } },
+                trailing = { Switch(settings.oledBlack, { v -> oledAnchor.reveal { scope.launch { store.update { it.copy(oledBlack = v) } } } }, oledAnchor.modifier) },
+                onClick = { oledAnchor.reveal { scope.launch { store.update { it.copy(oledBlack = !it.oledBlack) } } } },
             )
             GroupRow(
                 stringResource(R.string.settings_dynamic),
                 supporting = stringResource(R.string.settings_dynamic_body),
-                trailing = { Switch(settings.dynamicColor, { v -> scope.launch { store.update { it.copy(dynamicColor = v) } } }) },
-                onClick = { scope.launch { store.update { it.copy(dynamicColor = !it.dynamicColor) } } },
+                trailing = { Switch(settings.dynamicColor, { v -> dynAnchor.reveal { scope.launch { store.update { it.copy(dynamicColor = v) } } } }, dynAnchor.modifier) },
+                onClick = { dynAnchor.reveal { scope.launch { store.update { it.copy(dynamicColor = !it.dynamicColor) } } } },
             )
         }
     }
@@ -144,90 +153,28 @@ internal fun AccountsPage(
     val container = LocalAppContainer.current
     val scope = rememberCoroutineScope()
     val stash by container.secrets.stash.collectAsState()
-    val whisparr by container.secrets.whisparr.collectAsState()
-    var confirm by remember { mutableIntStateOf(0) }
+    var confirm by remember { mutableStateOf(false) }
     SettingsPage(stringResource(R.string.settings_accounts), onBack) {
         SectionHeader(stringResource(R.string.onboarding_stashdb), Gutter)
         TonalGroup(Gutter) {
             GroupRow(stringResource(R.string.settings_sign_in_again), supporting = stash?.baseUrl, onClick = { onRerun(1) })
-            GroupRow(stringResource(R.string.settings_disconnect), supporting = stringResource(R.string.settings_disconnect_stash_body), onClick = { confirm = 1 })
+            GroupRow(stringResource(R.string.settings_disconnect), supporting = stringResource(R.string.settings_disconnect_stash_body), onClick = { confirm = true })
         }
         SectionHeader(stringResource(R.string.onboarding_whisparr), Gutter)
-        TonalGroup(Gutter) {
-            val w = whisparr
-            if (w == null) {
-                GroupRow(stringResource(R.string.settings_connect_whisparr), supporting = stringResource(R.string.onboarding_not_connected), onClick = { onRerun(2) })
-            } else {
-                GroupRow(stringResource(R.string.settings_reconnect), supporting = w.baseUrl, onClick = { onRerun(2) })
-                GroupRow(
-                    stringResource(R.string.onboarding_ignore_cert),
-                    supporting = stringResource(R.string.settings_ignore_cert_body),
-                    trailing = { Switch(w.ignoreCertErrors, { v -> scope.launch { container.secrets.setWhisparr(w.copy(ignoreCertErrors = v)) } }) },
-                    onClick = { scope.launch { container.secrets.setWhisparr(w.copy(ignoreCertErrors = !w.ignoreCertErrors)) } },
-                )
-                GroupRow(stringResource(R.string.settings_disconnect), supporting = stringResource(R.string.settings_disconnect_whisparr_body), onClick = { confirm = 2 })
-            }
-        }
+        WhisparrAccountGroup(onRerun)
     }
-    if (confirm != 0) {
-        val stashing = confirm == 1
+    if (confirm) {
         ConfirmSheet(
-            stringResource(if (stashing) R.string.settings_disconnect_stash_title else R.string.settings_disconnect_whisparr_title),
-            stringResource(if (stashing) R.string.settings_disconnect_stash_confirm else R.string.settings_disconnect_whisparr_confirm),
+            stringResource(R.string.settings_disconnect_stash_title),
+            stringResource(R.string.settings_disconnect_stash_confirm),
             stringResource(R.string.settings_disconnect),
             onConfirm = {
-                confirm = 0
+                confirm = false
                 // Signing out of StashDB sends the shell back to onboarding.
-                scope.launch { if (stashing) container.secrets.setStash(null) else container.secrets.setWhisparr(null) }
+                scope.launch { container.secrets.setStash(null) }
             },
-            onDismiss = { confirm = 0 },
+            onDismiss = { confirm = false },
         )
-    }
-}
-
-@Composable
-internal fun WhisparrDefaultsPage(
-    settings: Settings,
-    onBack: () -> Unit,
-) {
-    val container = LocalAppContainer.current
-    val scope = rememberCoroutineScope()
-    val account by container.secrets.whisparr.collectAsState()
-    var roots by remember { mutableStateOf<List<RootFolder>?>(null) }
-    var profiles by remember { mutableStateOf<List<QualityProfile>>(emptyList()) }
-    var failed by remember { mutableStateOf(false) }
-    var attempt by remember { mutableIntStateOf(0) }
-    LaunchedEffect(account, attempt) {
-        val acc = account ?: return@LaunchedEffect
-        failed = false
-        roots = null
-        try {
-            val api = WhisparrClients.create(acc)
-            roots = api.rootFolders().filter { it.accessible }
-            profiles = api.qualityProfiles()
-        } catch (e: kotlinx.coroutines.CancellationException) {
-            throw e
-        } catch (e: Exception) {
-            failed = true
-            roots = emptyList()
-        }
-    }
-    SettingsPage(stringResource(R.string.settings_whisparr_defaults), onBack) {
-        if (roots == null) {
-            LoadingSkeleton(Gutter) {
-                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    repeat(3) { SkeletonBox(Modifier.fillMaxWidth().height(72.dp), groupItemShape(it, 3)) }
-                }
-            }
-        } else {
-            if (failed) {
-                Text(stringResource(R.string.settings_whisparr_unreachable), Gutter, color = MaterialTheme.colorScheme.error)
-                ActionButton(stringResource(R.string.settings_retry), { attempt++ }, Gutter, tonal = true)
-            }
-            WhisparrDefaultsEditor(roots.orEmpty(), profiles, settings.whisparr) { d: WhisparrDefaults ->
-                scope.launch { container.settings.update { it.copy(whisparr = d) } }
-            }
-        }
     }
 }
 

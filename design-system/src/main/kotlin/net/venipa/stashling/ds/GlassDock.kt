@@ -1,15 +1,19 @@
 package net.venipa.stashling.ds
 
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.snap
 import androidx.compose.animation.core.spring
+import androidx.compose.foundation.background
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -53,6 +57,7 @@ private val DockInset = 8.dp
 /**
  * Floating glass pill with 3 or 4 tabs (wallcrad GlassDock without the search panel). One selection pill slides under the
  * active tab; place it last in a full-screen Box. [onHeightChanged] reports the full footprint for a scroll-blur band.
+ * [top] = rows attached above the tabs on the same glass (wallcrad context row: Home controls, downloading); the dock grows upward.
  */
 @Composable
 fun GlassDock(
@@ -62,6 +67,7 @@ fun GlassDock(
     onSelect: (Int) -> Unit,
     modifier: Modifier = Modifier,
     onHeightChanged: (Int) -> Unit = {},
+    top: (@Composable ColumnScope.() -> Unit)? = null,
 ) {
     val haptic = LocalHapticFeedback.current
     val reduce = LocalReduceMotion.current
@@ -73,8 +79,14 @@ fun GlassDock(
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 16.dp)
                 .glass(glass, GlassRole.Dock)
+                .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec(), Alignment.BottomCenter)
                 .selectableGroup(),
         ) {
+            if (top != null) {
+                // Same 8dp inset as the tab row, so the rows' concentric radius matches the tab pills.
+                Column(Modifier.fillMaxWidth().padding(start = DockInset, end = DockInset, top = DockInset), verticalArrangement = Arrangement.spacedBy(4.dp), content = top)
+                Box(Modifier.fillMaxWidth().padding(top = DockInset).height(1.dp).background(MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)))
+            }
             // One indicator pill: its two edges chase the selected tab on different springs, so it stretches while it slides.
             val spatial = if (reduce) snap() else spring<Float>(dampingRatio = 0.9f, stiffness = Spring.StiffnessMedium)
             val slow = if (reduce) snap() else spring<Float>(dampingRatio = 0.9f, stiffness = Spring.StiffnessMediumLow)

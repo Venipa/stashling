@@ -72,8 +72,8 @@ fun SettingsScreen(
                     )
                     if (whisparr != null) {
                         GroupRow(
-                            stringResource(R.string.settings_whisparr_defaults),
-                            supporting = settings.whisparr.rootFolder ?: stringResource(R.string.settings_not_set),
+                            stringResource(R.string.settings_whisparr),
+                            supporting = stringResource(R.string.settings_whisparr_menu_value, settings.allPresets.size, settings.tagRules.size),
                             icon = StashlingIcons.Download,
                             onClick = { onOpen(SettingsSection.WhisparrDefaults) },
                         )
@@ -90,7 +90,7 @@ fun SettingsScreen(
 
         SettingsSection.Accounts -> AccountsPage(onBack, onRerun)
 
-        SettingsSection.WhisparrDefaults -> WhisparrDefaultsPage(settings, onBack)
+        SettingsSection.WhisparrDefaults -> WhisparrSettings(onBack, onRerun)
 
         SettingsSection.Storage -> StoragePage(onBack)
 

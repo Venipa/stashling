@@ -35,6 +35,11 @@ interface WhisparrApi {
 
     suspend fun qualityProfiles(): List<QualityProfile>
 
+    suspend fun tags(): List<WhisparrTag>
+
+    /** Whisparr lowercases [label]; the result has the stored label. */
+    suspend fun createTag(label: String): WhisparrTag
+
     suspend fun lookupScene(stashId: String): List<SearchResult>
 
     suspend fun movieByStashId(stashId: String): List<WhisparrScene>
@@ -95,6 +100,10 @@ class KtorWhisparrApi(
     override suspend fun rootFolders(): List<RootFolder> = get("rootfolder")
 
     override suspend fun qualityProfiles(): List<QualityProfile> = get("qualityprofile")
+
+    override suspend fun tags(): List<WhisparrTag> = get("tag")
+
+    override suspend fun createTag(label: String): WhisparrTag = decode(send(HttpMethod.Post, "tag", buildJsonObject { put("label", label) }))
 
     override suspend fun lookupScene(stashId: String): List<SearchResult> = get("lookup/scene") { parameter("term", "stash:$stashId") }
 

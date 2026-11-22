@@ -3,10 +3,28 @@ package net.venipa.stashling.nav
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.material3.ContainedLoadingIndicator
+import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
+import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
@@ -17,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.stringResource
@@ -35,8 +54,9 @@ import androidx.navigation3.ui.NavDisplay
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.ds.DockTab
+import net.venipa.stashling.ds.GlassCorner
 import net.venipa.stashling.ds.GlassDock
-import net.venipa.stashling.ds.LoadingPill
+import net.venipa.stashling.ds.GlassRole
 import net.venipa.stashling.ds.LocalGlass
 import net.venipa.stashling.ds.LocalReduceMotion
 import net.venipa.stashling.ds.Space
@@ -44,8 +64,10 @@ import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TransitionSpecs
 import net.venipa.stashling.ds.backEnter
 import net.venipa.stashling.ds.backExit
+import net.venipa.stashling.ds.concentricShape
 import net.venipa.stashling.ds.fadeThroughEnter
 import net.venipa.stashling.ds.fadeThroughExit
+import net.venipa.stashling.ds.glass
 import net.venipa.stashling.ds.glassSource
 import net.venipa.stashling.ds.navBarEnter
 import net.venipa.stashling.ds.navBarExit
@@ -60,6 +82,7 @@ import net.venipa.stashling.feature.detail.StudioDetailScreen
 import net.venipa.stashling.feature.detail.TagDetailScreen
 import net.venipa.stashling.feature.downloads.DownloadsViewModel
 import net.venipa.stashling.feature.gallery.GalleryScreen
+import net.venipa.stashling.feature.home.HomeDockControls
 import net.venipa.stashling.feature.home.HomeScreen
 import net.venipa.stashling.feature.library.LibraryScreen
 import net.venipa.stashling.feature.onboarding.OnboardingScreen
@@ -145,7 +168,7 @@ fun AppNav(
                 predictivePopTransitionSpec = { backEnter(ltr, reduce) togetherWith backExit(ltr, reduce) },
                 entryProvider =
                 entryProvider {
-                    entry<HomeRoute> { HomeScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }) }
+                    entry<HomeRoute> { HomeScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }) }
                     entry<BrowseRoute> { BrowseScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
                     entry<LibraryRoute> { LibraryScreen(hasDownloads, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
                     entry<SceneDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> SceneDetailScreen(r.id, onBack = navigator.pop, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("scene", r.id, i)) }) }
@@ -160,16 +183,13 @@ fun AppNav(
                 },
             )
         }
-        val active = sections.downloading.size
-        LoadingPill(
-            showDock && hasDownloads && active > 0,
-            Modifier.align(Alignment.BottomCenter).padding(bottom = dockInset + Space.S),
-            label = stringResource(R.string.library_downloading_pill, active, (sections.progress * 100).toInt()),
-            onClick = {
-                downloads.librarySegment.value = 1
-                goTab(LibraryRoute)
-            },
-        )
+        val root = backStack.first()
+        // Content melts into a progressive blur under the status bar on the bar-less tabs (tonal fallback in Glass).
+        AnimatedVisibility(showDock && (root == HomeRoute || root == BrowseRoute), Modifier.align(Alignment.TopCenter), enter = fadeIn(), exit = fadeOut()) {
+            Box(Modifier.fillMaxWidth().height(WindowInsets.statusBars.asPaddingValues().calculateTopPadding() + 10.dp).glass(glass, GlassRole.EdgeTop))
+        }
+        val active = if (hasDownloads) sections.downloading.size else 0
+        val onHome = root == HomeRoute
         AnimatedVisibility(
             showDock,
             Modifier.align(Alignment.BottomCenter),
@@ -177,7 +197,42 @@ fun AppNav(
             exit = navBarExit(reduce),
         ) {
             val selected = tabKeys.indexOf(backStack.first()).coerceAtLeast(0)
-            GlassDock(glass, tabs, selected, onSelect = { goTab(tabKeys[it]) }, onHeightChanged = { dockPx = it })
+            // The downloading row and Home's controls are attached to the dock glass, not stacked pills.
+            val top: (@Composable ColumnScope.() -> Unit)? =
+                if (active > 0 || onHome) {
+                    {
+                        if (active > 0) {
+                            DownloadingRow(stringResource(R.string.library_downloading_pill, active, (sections.progress * 100).toInt())) {
+                                downloads.librarySegment.value = 1
+                                goTab(LibraryRoute)
+                            }
+                        }
+                        if (onHome) HomeDockControls()
+                    }
+                } else {
+                    null
+                }
+            GlassDock(glass, tabs, selected, onSelect = { goTab(tabKeys[it]) }, onHeightChanged = { dockPx = it }, top = top)
         }
     }
+}
+
+@OptIn(ExperimentalMaterial3ExpressiveApi::class)
+@Composable
+private fun DownloadingRow(
+    label: String,
+    onClick: () -> Unit,
+) = Row(
+    Modifier
+        .fillMaxWidth()
+        .heightIn(min = 48.dp)
+        .clip(concentricShape(GlassCorner, 8.dp))
+        .clickable(onClickLabel = stringResource(R.string.library_downloading_open), onClick = onClick)
+        .padding(horizontal = Space.S),
+    horizontalArrangement = Arrangement.spacedBy(Space.M),
+    verticalAlignment = Alignment.CenterVertically,
+) {
+    ContainedLoadingIndicator(Modifier.size(32.dp))
+    Text(label, Modifier.weight(1f), style = MaterialTheme.typography.labelLarge, maxLines = 1)
+    Icon(StashlingIcons.ChevronRight, null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
 }

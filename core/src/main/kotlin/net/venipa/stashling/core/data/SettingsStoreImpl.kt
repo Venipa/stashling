@@ -12,6 +12,11 @@ import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.map
+import kotlinx.serialization.KSerializer
+import kotlinx.serialization.SerializationException
+import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.json.Json
 
 // File datastore/settings.preferences_pb: backed up (no secrets in it).
 private val Context.settingsData by preferencesDataStore(name = "settings")
@@ -39,6 +44,23 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
         val W_SEARCH = booleanPreferencesKey("whisparr_search_on_add")
         val CURSOR = longPreferencesKey("history_cursor")
 
+        // Presets and rules: small lists read with the rest of Settings, so JSON in DataStore (no Room table, no migration; backed up).
+        val W_TAGS = stringPreferencesKey("whisparr_tag_ids")
+        val PRESETS = stringPreferencesKey("whisparr_presets")
+        val RULES = stringPreferencesKey("whisparr_tag_rules")
+        val json = Json { ignoreUnknownKeys = true }
+
+        // An unreadable list reads as empty rather than crashing every Settings read.
+        fun <T> Preferences.list(key: Preferences.Key<String>, s: KSerializer<T>): List<T> = this[key]?.let {
+            try {
+                json.decodeFromString(ListSerializer(s), it)
+            } catch (e: SerializationException) {
+                null
+            } catch (e: IllegalArgumentException) {
+                null
+            }
+        } ?: emptyList()
+
         inline fun <reified E : Enum<E>> Preferences.enum(key: Preferences.Key<String>, default: E): E = this[key]?.let { v -> enumValues<E>().firstOrNull { it.name == v } } ?: default
 
         fun Preferences.toSettings(): Settings {
@@ -57,8 +79,11 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
                     qualityProfileId = this[W_PROFILE],
                     monitor = this[W_MONITOR] ?: d.whisparr.monitor,
                     searchOnAdd = this[W_SEARCH] ?: d.whisparr.searchOnAdd,
+                    tagIds = list(W_TAGS, Int.serializer()),
                 ),
                 historyCursor = this[CURSOR],
+                presets = list(PRESETS, WhisparrPreset.serializer()),
+                tagRules = list(RULES, TagRule.serializer()),
             )
         }
 
@@ -79,6 +104,9 @@ class SettingsStoreImpl(context: Context) : SettingsStore {
             this[W_MONITOR] = s.whisparr.monitor
             this[W_SEARCH] = s.whisparr.searchOnAdd
             setOrRemove(CURSOR, s.historyCursor)
+            this[W_TAGS] = json.encodeToString(ListSerializer(Int.serializer()), s.whisparr.tagIds)
+            this[PRESETS] = json.encodeToString(ListSerializer(WhisparrPreset.serializer()), s.presets)
+            this[RULES] = json.encodeToString(ListSerializer(TagRule.serializer()), s.tagRules)
         }
     }
 }
