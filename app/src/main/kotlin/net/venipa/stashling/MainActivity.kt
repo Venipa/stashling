@@ -19,7 +19,6 @@ import androidx.fragment.app.FragmentActivity
 import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.data.ThemeMode
 import net.venipa.stashling.ds.StashlingTheme
-import net.venipa.stashling.feature.lock.AppLockController
 import net.venipa.stashling.feature.lock.LockOverlay
 import net.venipa.stashling.nav.AppNav
 import net.venipa.stashling.ds.ThemeMode as DsThemeMode
@@ -32,7 +31,7 @@ class MainActivity : FragmentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
-        val lock = AppLockController(container.settings.settings, container.appScope)
+        val lock = container.appLock
         lifecycle.addObserver(lock)
         if (savedInstanceState == null) readDeepLink(intent)
         setContent {

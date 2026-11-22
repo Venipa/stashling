@@ -22,6 +22,7 @@ import net.venipa.stashling.core.stash.StashDbClient
 import net.venipa.stashling.core.stash.newStashHttpClient
 import net.venipa.stashling.core.whisparr.WhisparrClients
 import net.venipa.stashling.core.whisparr.WhisparrRepository
+import net.venipa.stashling.feature.lock.AppLockController
 
 /** Manual DI: one instance per process, created by [StashlingApp]. */
 class AppContainer(context: Context) {
@@ -36,6 +37,8 @@ class AppContainer(context: Context) {
 
     // StashDB: its own client (https only, no redirects); the key is read per call, so a re-login needs no rebuild.
     val stash: StashDbApi = StashDbClient(newStashHttpClient()) { secrets.stash.value }
+
+    val appLock by lazy { AppLockController(settings.settings, appScope) }
 
     // --- whisparr ---
     // Own client per account (never the StashDB one); null = not connected → PanelState.Unavailable.

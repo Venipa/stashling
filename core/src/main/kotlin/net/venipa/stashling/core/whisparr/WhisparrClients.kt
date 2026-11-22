@@ -34,6 +34,8 @@ object WhisparrClients {
         engine: HttpClientEngine,
     ): HttpClient = HttpClient(engine) {
         expectSuccess = false
+        // Ktor keeps custom headers on cross-host redirects (it only strips Authorization): never follow, or an auth proxy's 302 gets the key.
+        followRedirects = false
         install(HttpTimeout) {
             connectTimeoutMillis = 10_000
             requestTimeoutMillis = 30_000

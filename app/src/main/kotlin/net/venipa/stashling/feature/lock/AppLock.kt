@@ -1,5 +1,6 @@
 package net.venipa.stashling.feature.lock
 
+import android.app.Activity
 import android.os.SystemClock
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
@@ -34,6 +35,7 @@ import androidx.lifecycle.LifecycleOwner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.launch
+import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.ds.ActionButton
@@ -69,7 +71,7 @@ fun authenticate(
 
 /**
  * Locks on start-up and when the app returns after [Settings.appLockTimeoutSec] in the background, while [Settings.appLock] is on.
- * Created by the activity, which adds it as a lifecycle observer.
+ * One per process (AppContainer) so a configuration change doesn't lock again; each activity adds it as a lifecycle observer.
  */
 class AppLockController(
     settings: Flow<Settings>,
@@ -98,6 +100,7 @@ class AppLockController(
     }
 
     override fun onStop(owner: LifecycleOwner) {
+        if ((owner as? Activity)?.isChangingConfigurations == true) return
         stoppedAt = SystemClock.elapsedRealtime()
     }
 
@@ -123,7 +126,17 @@ fun LockOverlay(controller: AppLockController) {
     fun prompt() {
         activity?.let { authenticate(it, title, onSuccess = controller::unlock, onFailure = { failed = true }) }
     }
-    LaunchedEffect(controller.loaded) { if (controller.loaded) prompt() }
+    val store = LocalAppContainer.current.settings
+    LaunchedEffect(controller.loaded) {
+        if (!controller.loaded) return@LaunchedEffect
+        // Screen lock removed since the lock was turned on: prompting would fail forever and lock the user out.
+        if (activity != null && !canAuthenticate(activity)) {
+            store.update { it.copy(appLock = false) }
+            controller.unlock()
+        } else {
+            prompt()
+        }
+    }
     Surface(Modifier.fillMaxSize().pointerInput(Unit) {}, color = MaterialTheme.colorScheme.background) {
         if (controller.loaded) {
             Column(Modifier.fillMaxSize().padding(24.dp), Arrangement.spacedBy(16.dp, Alignment.CenterVertically), Alignment.CenterHorizontally) {

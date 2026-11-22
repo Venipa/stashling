@@ -8,6 +8,7 @@ import androidx.room.Index
 import androidx.room.Query
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.Transaction
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -40,9 +41,17 @@ interface BookmarkDao {
     @Query("DELETE FROM bookmark WHERE kind = :kind AND stashId = :stashId")
     suspend fun delete(kind: BookmarkKind, stashId: String)
 
-    // OR REPLACE: when newId is already bookmarked, that row wins the key and the old one goes.
-    @Query("UPDATE OR REPLACE bookmark SET stashId = :newId WHERE kind = :kind AND stashId = :oldId")
-    suspend fun rekey(kind: BookmarkKind, oldId: String, newId: String)
+    @Query("UPDATE bookmark SET stashId = :newId WHERE kind = :kind AND stashId = :oldId")
+    suspend fun move(kind: BookmarkKind, oldId: String, newId: String)
+
+    @Query("SELECT COUNT(*) FROM bookmark WHERE kind = :kind AND stashId = :stashId")
+    suspend fun count(kind: BookmarkKind, stashId: String): Int
+
+    /** If newId is already bookmarked, that row is kept and the stale old one dropped; else the old row moves to newId. */
+    @Transaction
+    suspend fun rekey(kind: BookmarkKind, oldId: String, newId: String) {
+        if (count(kind, newId) > 0) delete(kind, oldId) else move(kind, oldId, newId)
+    }
 }
 
 @Database(entities = [BookmarkEntity::class], version = 1, exportSchema = true)

@@ -120,7 +120,7 @@ internal fun PrivacyPage(
             SectionHeader(stringResource(R.string.settings_lock_after), Gutter)
             StashSegmented(
                 listOf(R.string.settings_lock_now, R.string.settings_lock_30s, R.string.settings_lock_1m, R.string.settings_lock_5m).map { stringResource(it) },
-                timeouts.indexOf(settings.appLockTimeoutSec).coerceAtLeast(2),
+                timeouts.indexOf(settings.appLockTimeoutSec).takeIf { it >= 0 } ?: 2,
                 { i -> scope.launch { store.update { it.copy(appLockTimeoutSec = timeouts[i]) } } },
                 Gutter,
             )

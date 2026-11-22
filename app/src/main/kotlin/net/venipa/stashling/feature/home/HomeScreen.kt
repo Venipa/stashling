@@ -2,8 +2,11 @@ package net.venipa.stashling.feature.home
 
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.grid.rememberLazyGridState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Scaffold
@@ -11,7 +14,6 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.key
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.lifecycle.ViewModel
@@ -31,7 +33,6 @@ import net.venipa.stashling.feature.common.ListModeToggle
 import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashTopBar
-import net.venipa.stashling.feature.common.fullSpan
 import net.venipa.stashling.feature.common.listPadding
 import net.venipa.stashling.feature.common.rememberSceneListMode
 import net.venipa.stashling.nav.LocalDockInset
@@ -76,6 +77,7 @@ fun HomeScreen(onOpenScene: (String) -> Unit) {
     val loader = vm.loaders.getValue(tab)
     val state by loader.state.collectAsState()
     val mode by rememberSceneListMode()
+    val gridStates = HomeTab.entries.associateWith { rememberLazyGridState() }
     Scaffold(
         topBar = {
             StashTopBar(stringResource(R.string.app_name), actions = {
@@ -84,21 +86,19 @@ fun HomeScreen(onOpenScene: (String) -> Unit) {
             })
         },
     ) { pad ->
-        key(tab) {
+        Column(Modifier.padding(top = pad.calculateTopPadding())) {
+            Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Space.L, vertical = Space.S), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
+                HomeTab.entries.forEach { t -> FilterChip(t == tab, { vm.select(t) }, { Text(stringResource(t.label)) }) }
+            }
+            // One grid state per tab, so each tab keeps its scroll position across chip switches.
             ScenesGrid(
                 state,
                 mode,
-                listPadding(pad, LocalDockInset.current),
+                listPadding(PaddingValues(bottom = pad.calculateBottomPadding()), LocalDockInset.current),
                 loader::loadMore,
                 loader::retry,
                 onOpenScene,
-                header = {
-                    fullSpan("tabs") {
-                        Row(Modifier.horizontalScroll(rememberScrollState()).padding(bottom = Space.S), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                            HomeTab.entries.forEach { t -> FilterChip(t == tab, { vm.select(t) }, { Text(stringResource(t.label)) }) }
-                        }
-                    }
-                },
+                gridState = gridStates.getValue(tab),
             )
         }
     }

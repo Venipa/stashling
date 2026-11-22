@@ -56,7 +56,6 @@ import net.venipa.stashling.ds.StatusPill
 import net.venipa.stashling.ds.TonalCard
 import net.venipa.stashling.ds.groupItemShape
 import net.venipa.stashling.ds.readableWidth
-import net.venipa.stashling.feature.detail.whisparr.GroupItem
 import net.venipa.stashling.feature.detail.whisparr.QueueProgress
 import net.venipa.stashling.feature.detail.whisparr.queueLabel
 import net.venipa.stashling.nav.LocalDockInset
@@ -148,7 +147,7 @@ private fun QueueRow(
     shape: Shape,
     onOpen: () -> Unit,
     onRemove: (blocklist: Boolean) -> Unit,
-) = GroupItem(shape, item.movie?.let { onOpen }) {
+) = TonalCard(shape = shape, onClick = item.movie?.let { onOpen }) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.S)) {
         Text(item.movie?.title ?: item.title.orEmpty(), Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
         StatusPill(queueLabel(item), if (item.trackedDownloadStatus == "warning" || item.status == "warning") PillTone.Warn else PillTone.Ok)
@@ -165,7 +164,7 @@ private fun HistoryRow(
     item: HistoryItem,
     shape: Shape,
     onOpen: () -> Unit,
-) = GroupItem(shape, item.movie?.let { onOpen }) {
+) = TonalCard(shape = shape, onClick = item.movie?.let { onOpen }) {
     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(Space.S)) {
         Text(item.movie?.title ?: item.sourceTitle, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
         val (label, tone) =

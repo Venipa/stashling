@@ -123,7 +123,7 @@ private fun SceneBody(
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).navigationBarsPadding(), verticalArrangement = Arrangement.spacedBy(Space.L)) {
         Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f)) {
             StashImage(
-                scene.images.firstOrNull()?.sized(600),
+                scene.images.firstOrNull()?.sized(1280),
                 Modifier.fillMaxSize().glassSource(glass).then(if (scene.images.isEmpty()) Modifier else Modifier.clickable { onOpenGallery(0) }),
                 scene.title,
             )

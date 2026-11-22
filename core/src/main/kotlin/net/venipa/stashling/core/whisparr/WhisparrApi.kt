@@ -202,13 +202,24 @@ class KtorWhisparrApi(
             } catch (e: IOException) {
                 throw WhisparrError.Network(e)
             }
-        val text = response.bodyAsText()
+        val text =
+            try {
+                response.bodyAsText()
+            } catch (e: IOException) {
+                throw WhisparrError.Network(e)
+            }
+        if (response.status.value in 300..399) throw WhisparrError.Http(response.status.value, "Whisparr redirected (auth proxy in front of /api?)")
         if (response.status.value == 401) throw WhisparrError.Unauthorized()
         if (!response.status.isSuccess()) throw WhisparrError.Http(response.status.value, errorText(text, response.status.value))
         return text
     }
 
-    private inline fun <reified T> decode(text: String): T = whisparrJson.decodeFromString(serializer<T>(), text)
+    // Non-JSON 200s (wrong urlBase, proxy login page) must surface as WhisparrError, callers only catch that.
+    private inline fun <reified T> decode(text: String): T = try {
+        whisparrJson.decodeFromString(serializer<T>(), text)
+    } catch (e: IllegalArgumentException) { // SerializationException is one
+        throw WhisparrError.Http(200, "Unexpected reply from Whisparr (not its API?)")
+    }
 
     companion object {
         const val RELEASES_TIMEOUT_MS = 120_000L

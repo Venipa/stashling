@@ -112,7 +112,7 @@ private fun Pager(
     val glass = rememberGlassState()
     Box(Modifier.fillMaxSize()) {
         HorizontalPager(pager, Modifier.fillMaxSize().glassSource(glass), beyondViewportPageCount = 1, key = { images[it].id }) { page ->
-            ZoomPage(images[page].sized(1280), current = page == pager.currentPage)
+            ZoomPage(images[page].sized(1280), current = page == pager.settledPage)
         }
         Row(Modifier.fillMaxWidth().statusBarsPadding().padding(Space.S), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
             GlassIconButton(glass, StashlingIcons.Back, stringResource(R.string.detail_back), onBack)

@@ -5,7 +5,6 @@ import android.text.format.Formatter
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -16,7 +15,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -25,6 +23,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Shape
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextOverflow
@@ -45,6 +44,7 @@ import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.AppBottomSheet
 import net.venipa.stashling.ds.CardTone
 import net.venipa.stashling.ds.EmptyState
+import net.venipa.stashling.ds.HeroCardRadius
 import net.venipa.stashling.ds.Loading
 import net.venipa.stashling.ds.PillTone
 import net.venipa.stashling.ds.SheetRadius
@@ -87,19 +87,11 @@ fun WhisparrPanel(
 
             is PanelState.NotInLibrary -> {
                 if (s.excluded) Text(stringResource(R.string.whisparr_excluded), style = MaterialTheme.typography.bodyMedium)
-                val add: @Composable (Boolean) -> Unit = { filled -> ActionButton(stringResource(R.string.whisparr_add), { vm.add(AddMode.REQUEST) }, enabled = !busy, tonal = !filled) }
-                val addSearch: @Composable (Boolean) -> Unit = { filled ->
-                    ActionButton(stringResource(R.string.whisparr_add_and_search), { vm.add(AddMode.QUEUE) }, enabled = !busy, tonal = !filled, icon = StashlingIcons.Search)
-                }
+                val add = PanelButton(stringResource(R.string.whisparr_add), { vm.add(AddMode.REQUEST) }, tonal = searchOnAdd)
+                val addSearch = PanelButton(stringResource(R.string.whisparr_add_and_search), { vm.add(AddMode.QUEUE) }, tonal = !searchOnAdd, icon = StashlingIcons.Search)
+                val pick = PanelButton(stringResource(R.string.whisparr_interactive_search), { vm.add(AddMode.PICK) }, tonal = true)
                 // Settings "search on add" decides which one is the filled primary; both always shown.
-                if (searchOnAdd) {
-                    addSearch(true)
-                    add(false)
-                } else {
-                    add(true)
-                    addSearch(false)
-                }
-                ActionButton(stringResource(R.string.whisparr_interactive_search), { vm.add(AddMode.PICK) }, enabled = !busy, tonal = true)
+                ButtonGroup(if (searchOnAdd) listOf(addSearch, add, pick) else listOf(add, addSearch, pick), enabled = !busy)
             }
 
             is PanelState.Missing -> {
@@ -130,7 +122,7 @@ fun WhisparrPanel(
 
             is PanelState.Error -> {
                 Text(s.message.ifBlank { stringResource(R.string.whisparr_error) }, style = MaterialTheme.typography.bodyMedium)
-                ActionButton(stringResource(R.string.whisparr_retry), vm::retry, enabled = !busy, tonal = true)
+                ButtonGroup(listOf(PanelButton(stringResource(R.string.whisparr_retry), vm::retry, tonal = true)), enabled = !busy)
             }
         }
     }
@@ -195,8 +187,31 @@ private fun SearchActions(
     busy: Boolean,
     vm: WhisparrPanelViewModel,
 ) {
-    ActionButton(stringResource(R.string.whisparr_search), { vm.search(scene) }, enabled = !busy, icon = StashlingIcons.Search)
-    ActionButton(stringResource(R.string.whisparr_interactive_search), { vm.openReleases(scene) }, enabled = !busy, tonal = true)
+    ButtonGroup(
+        listOf(
+            PanelButton(stringResource(R.string.whisparr_search), { vm.search(scene) }, icon = StashlingIcons.Search),
+            PanelButton(stringResource(R.string.whisparr_interactive_search), { vm.openReleases(scene) }, tonal = true),
+        ),
+        enabled = !busy,
+    )
+}
+
+private class PanelButton(
+    val text: String,
+    val onClick: () -> Unit,
+    val tonal: Boolean = false,
+    val icon: ImageVector? = null,
+)
+
+/** Connected button stack inside the hero card: 20dp in from a 28dp corner, joins 2dp apart (concentric). */
+@Composable
+private fun ButtonGroup(
+    buttons: List<PanelButton>,
+    enabled: Boolean,
+) = Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+    buttons.forEachIndexed { i, b ->
+        ActionButton(b.text, b.onClick, enabled = enabled, tonal = b.tonal, icon = b.icon, shape = groupItemShape(i, buttons.size, outer = concentric(HeroCardRadius, 20.dp)))
+    }
 }
 
 @Composable
@@ -238,7 +253,7 @@ private fun ReleaseRow(
     onGrab: () -> Unit,
 ) {
     val context = LocalContext.current
-    GroupItem(shape, if (enabled) onGrab else null) {
+    TonalCard(shape = shape, onClick = if (enabled) onGrab else null) {
         Text(r.title, style = MaterialTheme.typography.bodyLarge, maxLines = 3, overflow = TextOverflow.Ellipsis)
         val age = if (r.ageHours < 48) stringResource(R.string.whisparr_age_hours, r.ageHours.toInt()) else stringResource(R.string.whisparr_age_days, (r.ageHours / 24).toInt())
         val meta = stringResource(R.string.whisparr_release_meta, r.quality.quality.name, Formatter.formatShortFileSize(context, r.size), age, r.indexer)
@@ -249,18 +264,4 @@ private fun ReleaseRow(
         }
         if (grabbing) LinearProgressIndicator(Modifier.fillMaxWidth())
     }
-}
-
-/** One row of the connected list: the surfaceContainer tone of GroupRow, corners from [groupItemShape]. */
-@Composable
-internal fun GroupItem(
-    shape: Shape,
-    onClick: (() -> Unit)?,
-    content: @Composable ColumnScope.() -> Unit,
-) {
-    val color = MaterialTheme.colorScheme.surfaceContainer
-    val body: @Composable () -> Unit = {
-        Column(Modifier.padding(Space.L), verticalArrangement = Arrangement.spacedBy(Space.S), content = content)
-    }
-    if (onClick != null) Surface(onClick, Modifier.fillMaxWidth(), shape = shape, color = color, content = body) else Surface(Modifier.fillMaxWidth(), shape = shape, color = color, content = body)
 }

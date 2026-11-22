@@ -3,7 +3,6 @@ package net.venipa.stashling.nav
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.ContentTransform
-import androidx.compose.animation.core.animateDpAsState
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
@@ -112,7 +111,8 @@ fun AppNav(
     val glass = rememberGlassState()
     val showDock = backStack.size == 1
     var dockPx by remember { mutableIntStateOf(0) }
-    val dockInset by animateDpAsState(if (showDock) with(LocalDensity.current) { dockPx.toDp() } else 0.dp, label = "dockInset")
+    // The target value, not animated: an animated inset would relayout the tab grid every frame of a transition.
+    val dockInset = if (showDock) with(LocalDensity.current) { dockPx.toDp() } else 0.dp
     val navigator = remember(backStack) { Navigator(push = { backStack.add(it) }, pop = { backStack.removeLastOrNull() }) }
 
     Box(Modifier.fillMaxSize()) {
@@ -154,7 +154,7 @@ fun AppNav(
             enter = navBarEnter(reduce),
             exit = navBarExit(reduce),
         ) {
-            val selected = tabKeys.indexOf(backStack.lastOrNull()).coerceAtLeast(0)
+            val selected = tabKeys.indexOf(backStack.first()).coerceAtLeast(0)
             GlassDock(glass, tabs, selected, onSelect = { goTab(tabKeys[it]) }, onHeightChanged = { dockPx = it })
         }
     }

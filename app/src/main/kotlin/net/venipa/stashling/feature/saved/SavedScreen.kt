@@ -41,6 +41,7 @@ import net.venipa.stashling.core.stash.StudioFilter
 import net.venipa.stashling.ds.ConfirmSheet
 import net.venipa.stashling.ds.EmptyState
 import net.venipa.stashling.ds.Space
+import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.PagedGrid
@@ -112,14 +113,17 @@ fun SavedScreen(
                 Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Space.L, vertical = Space.Xs), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
                     BookmarkKind.entries.forEach { k -> FilterChip(k == kind, { vm.selectKind(k) }, { Text(stringResource(k.labelRes())) }) }
                 }
-                Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = Space.L, vertical = Space.Xs), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                    if (kind == BookmarkKind.PERFORMER || kind == BookmarkKind.STUDIO) {
+                if (kind == BookmarkKind.PERFORMER || kind == BookmarkKind.STUDIO) {
+                    Row(Modifier.padding(horizontal = Space.L, vertical = Space.Xs)) {
                         FilterChip(remote, vm::toggleRemote, { Text(stringResource(R.string.saved_stashdb_favorites)) })
                     }
-                    if (!remote) {
-                        FilterChip(!byTitle, { vm.byTitle.value = false }, { Text(stringResource(R.string.saved_sort_added)) })
-                        FilterChip(byTitle, { vm.byTitle.value = true }, { Text(stringResource(R.string.saved_sort_title)) })
-                    }
+                }
+                if (!remote) {
+                    StashSegmented(
+                        listOf(stringResource(R.string.saved_sort_added), stringResource(R.string.saved_sort_title)),
+                        if (byTitle) 1 else 0,
+                        { vm.byTitle.value = it == 1 },
+                    )
                 }
             }
         },

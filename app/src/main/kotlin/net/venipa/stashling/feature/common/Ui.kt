@@ -64,6 +64,7 @@ import net.venipa.stashling.ds.EmptyState
 import net.venipa.stashling.ds.Loading
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashlingIcons
+import net.venipa.stashling.ds.concentric
 import net.venipa.stashling.ds.concentricShape
 import net.venipa.stashling.nav.LocalNavigator
 import net.venipa.stashling.nav.OnboardingRoute
@@ -86,7 +87,8 @@ fun listPadding(pad: PaddingValues, dock: Dp = 0.dp) = PaddingValues(
     start = Space.L,
     end = Space.L,
     top = pad.calculateTopPadding() + Space.S,
-    bottom = pad.calculateBottomPadding() + dock + Space.L,
+    // The dock already clears the nav bar, so only one of the two counts.
+    bottom = (if (dock > 0.dp) dock else pad.calculateBottomPadding()) + Space.L,
 )
 
 fun formatDuration(sec: Int): String {
@@ -186,19 +188,27 @@ fun SceneCardTile(
 @Composable
 fun SceneRow(
     scene: SceneCard,
-    shape: RoundedCornerShape,
+    index: Int,
+    count: Int,
     onClick: () -> Unit,
 ) = Row(
     Modifier
         .fillMaxWidth()
-        .clip(shape)
+        .clip(groupShape(index, count))
         .background(MaterialTheme.colorScheme.surfaceContainer)
         .clickable(onClick = onClick)
         .padding(CardPad),
     horizontalArrangement = Arrangement.spacedBy(Space.M),
     verticalAlignment = Alignment.CenterVertically,
 ) {
-    StashImage(scene.cover?.sized(300), Modifier.width(112.dp).aspectRatio(16f / 9f).clip(concentricShape(CardOuter, CardPad)))
+    // Start corners are concentric to the row's own (grouped) corners, per corner.
+    val thumb = RoundedCornerShape(
+        topStart = concentric(if (index == 0) CardOuter else 4.dp, CardPad),
+        topEnd = concentric(CardOuter, CardPad),
+        bottomEnd = concentric(CardOuter, CardPad),
+        bottomStart = concentric(if (index == count - 1) CardOuter else 4.dp, CardPad),
+    )
+    StashImage(scene.cover?.sized(300), Modifier.width(112.dp).aspectRatio(16f / 9f).clip(thumb))
     Column(Modifier.weight(1f)) {
         Text(scene.title ?: stringResource(R.string.browse_untitled), style = MaterialTheme.typography.titleSmall, maxLines = 2, overflow = TextOverflow.Ellipsis)
         Text(scene.meta(), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -304,6 +314,7 @@ fun ScenesGrid(
     onRetry: () -> Unit,
     onOpen: (String) -> Unit,
     modifier: Modifier = Modifier,
+    gridState: LazyGridState = rememberLazyGridState(),
     header: (LazyGridScope.() -> Unit)? = null,
 ) = PagedGrid(
     state,
@@ -314,10 +325,11 @@ fun ScenesGrid(
     onRetry,
     stringResource(R.string.browse_empty),
     modifier,
+    gridState = gridState,
     spacing = if (mode == ListMode.CARDS) Space.M else 2.dp,
     header = header,
 ) { i, s ->
-    if (mode == ListMode.CARDS) SceneCardTile(s) { onOpen(s.id) } else SceneRow(s, groupShape(i, state.items.size)) { onOpen(s.id) }
+    if (mode == ListMode.CARDS) SceneCardTile(s) { onOpen(s.id) } else SceneRow(s, i, state.items.size) { onOpen(s.id) }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
