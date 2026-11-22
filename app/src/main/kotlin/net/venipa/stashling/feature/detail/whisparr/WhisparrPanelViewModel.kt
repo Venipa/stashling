@@ -127,13 +127,8 @@ class WhisparrPanelViewModel(
             }
             val active = isActive(_state.value)
             // Live (SignalR): this scene's movie/command events or any queue change wake it; the timer is the fallback.
-            val wait = if (container.whisparrLiveConnected.value) {
-                LIVE_MS
-            } else if (active) {
-                ACTIVE_MS
-            } else {
-                IDLE_MS
-            }
+            // SignalR alone wasn't reliable — always poll (3 s active / 10 s idle); events only wake it sooner.
+            val wait = if (active) ACTIVE_MS else IDLE_MS
             withTimeoutOrNull(wait) {
                 merge(_state.filter { isActive(it) != active }, container.whisparrEvents.filter { concerns(it) }, container.whisparrLiveConnected.drop(1)).first()
             }
@@ -274,8 +269,7 @@ class WhisparrPanelViewModel(
     }
 
     private companion object {
-        const val ACTIVE_MS = 5_000L
-        const val IDLE_MS = 30_000L
-        const val LIVE_MS = 60_000L
+        const val ACTIVE_MS = 3_000L
+        const val IDLE_MS = 10_000L
     }
 }

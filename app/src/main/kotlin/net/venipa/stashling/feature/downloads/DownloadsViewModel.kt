@@ -107,9 +107,8 @@ class DownloadsViewModel(
             val repo = container.whisparr.value ?: container.whisparr.filterNotNull().first()
             loadQueue(repo)
             if (woken || tick % HISTORY_EVERY == 0 || _history.value.items == null) loadHistory(repo)
-            val live = container.whisparrLiveConnected.value
             // Tile badges: the index is a full library call, so at most once a minute (first tick = on connect); live events refresh it themselves.
-            if (System.currentTimeMillis() - indexAt >= if (live) LIVE_INDEX_MS else INDEX_MS) {
+            if (System.currentTimeMillis() - indexAt >= INDEX_MS) {
                 container.refreshWhisparrIndex()
                 indexAt = System.currentTimeMillis()
             }
@@ -118,13 +117,8 @@ class DownloadsViewModel(
             // Live: a queue/file event (grab, progress, import, failure) or a connection change wakes the loop; the timer is the fallback.
             woken =
                 withTimeoutOrNull(
-                    if (live) {
-                        LIVE_MS
-                    } else if (active) {
-                        ACTIVE_MS
-                    } else {
-                        IDLE_MS
-                    },
+                    // SignalR alone wasn't reliable — always poll (3 s active / 10 s idle); events only wake it sooner.
+                    if (active) ACTIVE_MS else IDLE_MS,
                 ) {
                     merge(container.whisparrEvents.filter { it.name == "queue" || it.name == "moviefile" }, container.whisparrLiveConnected.drop(1)).first()
                 } != null
@@ -167,11 +161,9 @@ class DownloadsViewModel(
     }
 
     private companion object {
-        const val ACTIVE_MS = 5_000L
-        const val IDLE_MS = 30_000L
+        const val ACTIVE_MS = 3_000L
+        const val IDLE_MS = 10_000L
         const val INDEX_MS = 60_000L
-        const val LIVE_MS = 60_000L
-        const val LIVE_INDEX_MS = 300_000L
         const val EVENT_SETTLE_MS = 1_000L
         const val HISTORY_EVERY = 6
         const val HISTORY_DAYS = 14
