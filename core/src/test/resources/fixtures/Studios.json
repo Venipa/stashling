@@ -1,0 +1,1 @@
+{"data":{"queryStudios":{"count":1,"studios":[{"id":"st1","name":"Studio A","is_favorite":false,"deleted":false,"images":[{"id":"i1","url":"https://stashdb.org/images/i1","width":1280,"height":720}],"parent":{"id":"st0","name":"Network"}}]}}}
