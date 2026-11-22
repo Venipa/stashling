@@ -1,13 +1,18 @@
 package net.venipa.stashling.ds
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.material3.ButtonGroup
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ContainedLoadingIndicator
 import androidx.compose.material3.ExperimentalMaterial3ExpressiveApi
 import androidx.compose.material3.Icon
@@ -17,8 +22,8 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.ToggleButton
 import androidx.compose.material3.ToggleButtonDefaults
+import androidx.compose.material3.ToggleButtonShapes
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
@@ -39,27 +44,33 @@ fun StashSegmented(
     modifier: Modifier = Modifier,
 ) {
     val cs = MaterialTheme.colorScheme
-    Box(modifier.fillMaxWidth().background(cs.surfaceContainerHigh, CircleShape).padding(4.dp)) {
-        ButtonGroup(overflowIndicator = {}, Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
-            val scope = this
-            options.forEachIndexed { i, label ->
-                customItem(
-                    buttonGroupContent = {
-                        val source = remember { MutableInteractionSource() }
-                        ToggleButton(
-                            checked = i == selected,
-                            onCheckedChange = { if (it) onSelect(i) },
-                            modifier = with(scope) { Modifier.weight(1f).animateWidth(source) },
-                            colors = ToggleButtonDefaults.colors(containerColor = Color.Transparent, contentColor = cs.onSurfaceVariant),
-                            interactionSource = source,
-                        ) { Text(label, textAlign = TextAlign.Center) }
-                    },
-                    menuContent = {},
-                )
-            }
+    // Fixed equal widths and one shared height (no width morph, no per-button height): selecting never shifts the layout.
+    // Concentric: track corner = button corner + pad.
+    val buttonShape = RoundedCornerShape(SegmentRadius)
+    val shapes = ToggleButtonShapes(buttonShape, RoundedCornerShape(SegmentRadius - 4.dp), buttonShape)
+    Row(
+        modifier
+            .fillMaxWidth()
+            .height(IntrinsicSize.Min)
+            .background(cs.surfaceContainerHigh, RoundedCornerShape(SegmentRadius + SegmentPad))
+            .padding(SegmentPad)
+            .selectableGroup(),
+        horizontalArrangement = Arrangement.spacedBy(2.dp),
+    ) {
+        options.forEachIndexed { i, label ->
+            ToggleButton(
+                checked = i == selected,
+                onCheckedChange = { if (it) onSelect(i) },
+                modifier = Modifier.weight(1f).fillMaxHeight().heightIn(min = 48.dp),
+                shapes = shapes,
+                colors = ToggleButtonDefaults.colors(containerColor = Color.Transparent, contentColor = cs.onSurfaceVariant),
+            ) { Text(label, textAlign = TextAlign.Center) }
         }
     }
 }
+
+private val SegmentRadius = 16.dp
+private val SegmentPad = 4.dp
 
 /** Cards / rows switch for list top bars; the caller persists the mode (Settings.sceneListMode). */
 @Composable

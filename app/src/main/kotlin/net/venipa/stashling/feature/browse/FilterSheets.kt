@@ -16,8 +16,8 @@ import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -129,7 +129,7 @@ fun PickerSheet(
         }
     }
     SheetColumn(title) {
-        OutlinedTextField(q, { q = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(stringResource(R.string.browse_search_hint)) })
+        TextField(q, { q = it }, Modifier.fillMaxWidth(), singleLine = true, placeholder = { Text(stringResource(R.string.browse_search_hint)) })
         header()
         when (val r = result) {
             PickResult.Loading -> Loading(Modifier.align(Alignment.CenterHorizontally))
@@ -160,7 +160,7 @@ fun DateSheet(
     val valid = runCatching { LocalDate.parse(text) }.isSuccess
     SheetColumn(stringResource(R.string.browse_filter_date)) {
         StashSegmented(listOf(stringResource(R.string.browse_date_after), stringResource(R.string.browse_date_before)), if (before) 1 else 0, { before = it == 1 })
-        OutlinedTextField(
+        TextField(
             text,
             { text = it },
             Modifier.fillMaxWidth(),
