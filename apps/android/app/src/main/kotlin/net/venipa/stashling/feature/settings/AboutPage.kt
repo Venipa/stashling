@@ -53,11 +53,13 @@ import net.venipa.stashling.ds.StashSwitch
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalCard
 import net.venipa.stashling.ds.TonalGroup
+import net.venipa.stashling.feature.common.BrowseIcons
 import net.venipa.stashling.feature.common.openLink
 import net.venipa.stashling.update.UpdateState
 
 private const val SOURCE = "https://github.com/Venipa/stashling"
 private const val AUTHOR = "https://github.com/Venipa"
+private const val SPONSOR = "https://github.com/sponsors/Venipa"
 private const val CONTRIBUTORS = "https://github.com/Venipa/stashling/graphs/contributors"
 private const val LICENCE = "https://www.gnu.org/licenses/gpl-3.0.html"
 
@@ -104,6 +106,7 @@ internal fun AboutPage(onBack: () -> Unit) {
         TonalGroup(Gutter) {
             val external: @Composable () -> Unit = { Icon(StashlingIcons.OpenExternal, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             GroupRow(stringResource(R.string.about_author), supporting = stringResource(R.string.about_author_value), icon = StashlingIcons.Person, onClick = { openLink(context, AUTHOR) }, trailing = external)
+            GroupRow(stringResource(R.string.about_sponsor), supporting = stringResource(R.string.about_sponsor_value), icon = BrowseIcons.Favorite, onClick = { openLink(context, SPONSOR) }, trailing = external)
             GroupRow(stringResource(R.string.about_source), supporting = stringResource(R.string.about_source_host), icon = StashlingIcons.Browse, onClick = { openLink(context, SOURCE) }, trailing = external)
             GroupRow(stringResource(R.string.settings_licence), supporting = stringResource(R.string.settings_licence_value), icon = StashlingIcons.Info, onClick = { openLink(context, LICENCE) }, trailing = external)
         }
