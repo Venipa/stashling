@@ -2,12 +2,14 @@ package net.venipa.stashling.feature.settings
 
 import android.net.Uri
 import androidx.compose.foundation.Image
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -17,6 +19,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -24,10 +27,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import coil3.compose.AsyncImage
+import coil3.request.ImageRequest
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import kotlinx.serialization.SerialName
+import kotlinx.serialization.Serializable
+import kotlinx.serialization.json.Json
 import net.venipa.stashling.BuildConfig
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
@@ -87,14 +98,41 @@ internal fun AboutPage(onBack: () -> Unit) {
         TonalGroup(Gutter) {
             val external: @Composable () -> Unit = { Icon(StashlingIcons.OpenExternal, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) }
             GroupRow(stringResource(R.string.about_author), supporting = stringResource(R.string.about_author_value), icon = StashlingIcons.Person, onClick = { openLink(context, AUTHOR) }, trailing = external)
-            GroupRow(stringResource(R.string.about_contributors), supporting = stringResource(R.string.about_contributors_value), icon = StashlingIcons.Person, onClick = { openLink(context, CONTRIBUTORS) }, trailing = external)
             GroupRow(stringResource(R.string.about_source), supporting = stringResource(R.string.about_source_host), icon = StashlingIcons.Browse, onClick = { openLink(context, SOURCE) }, trailing = external)
             GroupRow(stringResource(R.string.settings_licence), supporting = stringResource(R.string.settings_licence_value), icon = StashlingIcons.Info, onClick = { openLink(context, LICENCE) }, trailing = external)
         }
 
+        // Written at build time (release: GitHub contributors API, else the committed list); no network for the list itself.
+        val contributors by produceState(emptyList<Contributor>()) { value = withContext(Dispatchers.IO) { readContributors(context) } }
+        SectionHeader(stringResource(R.string.about_contributors), Gutter.padding(top = 8.dp))
+        TonalGroup(Gutter) {
+            contributors.forEach { c ->
+                GroupRow(
+                    c.login,
+                    supporting = if (c.contributions > 0) pluralStringResource(R.plurals.about_contributions, c.contributions, c.contributions) else null,
+                    onClick = { openLink(context, c.htmlUrl) },
+                    leading = {
+                        // Decorative: the login is the row's label.
+                        AsyncImage(
+                            ImageRequest.Builder(context).data(c.avatarUrl + (if ('?' in c.avatarUrl) "&s=120" else "?s=120")).size(120).build(),
+                            null,
+                            Modifier.size(40.dp).clip(CircleShape).background(MaterialTheme.colorScheme.secondaryContainer),
+                        )
+                    },
+                )
+            }
+            GroupRow(
+                stringResource(R.string.about_contributors_all),
+                supporting = stringResource(R.string.about_contributors_all_value),
+                icon = StashlingIcons.Person,
+                onClick = { openLink(context, CONTRIBUTORS) },
+                trailing = { Icon(StashlingIcons.OpenExternal, null, tint = MaterialTheme.colorScheme.onSurfaceVariant) },
+            )
+        }
+
         SectionHeader(stringResource(R.string.about_app), Gutter.padding(top = 8.dp))
         TonalGroup(Gutter) {
-            GroupRow(stringResource(R.string.about_version), supporting = stringResource(R.string.about_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.BUILD_TYPE), icon = StashlingIcons.Info)
+            GroupRow(stringResource(R.string.about_version), supporting = stringResource(R.string.about_version_value, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE, BuildConfig.BUILD_TYPE, BuildConfig.GIT_HASH), icon = StashlingIcons.Info)
             GroupRow(stringResource(R.string.about_sources), supporting = stringResource(R.string.about_sources_value), icon = StashlingIcons.Scenes)
             GroupRow(stringResource(R.string.about_privacy), supporting = stringResource(R.string.about_privacy_value), icon = StashlingIcons.Privacy)
         }
@@ -116,6 +154,23 @@ internal fun AboutPage(onBack: () -> Unit) {
         }
     }
 }
+
+@Serializable
+internal data class Contributor(
+    val login: String,
+    @SerialName("html_url") val htmlUrl: String,
+    @SerialName("avatar_url") val avatarUrl: String,
+    val contributions: Int = 0,
+)
+
+private val contributorsJson = Json { ignoreUnknownKeys = true }
+
+/** The build-time list (assets/contributors.json); only GitHub https links survive, a broken file shows none. */
+internal fun parseContributors(text: String): List<Contributor> = runCatching { contributorsJson.decodeFromString<List<Contributor>>(text) }
+    .getOrDefault(emptyList())
+    .filter { it.htmlUrl.startsWith("https://github.com/") && it.avatarUrl.startsWith("https://avatars.githubusercontent.com/") }
+
+private fun readContributors(context: android.content.Context): List<Contributor> = runCatching { context.assets.open("contributors.json").use { parseContributors(it.readBytes().decodeToString()) } }.getOrDefault(emptyList())
 
 // Host and port only: the path (urlBase) adds nothing here.
 private fun String.host(): String = Uri.parse(this).let { u -> u.host?.let { h -> if (u.port > 0) "$h:${u.port}" else h } } ?: this

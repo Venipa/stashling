@@ -1,0 +1,97 @@
+# Signed release APK on a v* tag (attached to a GitHub Release) or by hand (artifact only).
+#
+# Repository secrets (Settings -> Secrets and variables -> Actions):
+#   STASHLING_KEYSTORE_BASE64   base64 of keys/stashling-release.jks (base64 -w0 keys/stashling-release.jks)
+#   STASHLING_KEYSTORE_PASSWORD store password
+#   STASHLING_KEY_ALIAS         key alias (stashling)
+#   STASHLING_KEY_PASSWORD      key password (PKCS12: same as the store password)
+#   GRADLE_ENCRYPTION_KEY       optional: lets setup-gradle restore the configuration cache
+# GITHUB_TOKEN (built in) is used for the contributors list in About and for the release upload.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version_name:
+        description: "versionName (default: tag without v, else 0.0.0-<sha>)"
+        required: false
+      version_code:
+        description: "versionCode (default: commit count)"
+        required: false
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git hash + commit count
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "22" # same as the local Gradle daemon JVM
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }} # optional; enables the configuration cache restore
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-37.2 build-tools;36.0.0 platform-tools"
+
+      - name: Version
+        id: version
+        run: |
+          name="${{ inputs.version_name }}"
+          code="${{ inputs.version_code }}"
+          if [ -z "$name" ]; then
+            if [ "${GITHUB_REF_TYPE}" = "tag" ]; then name="${GITHUB_REF_NAME#v}"; else name="0.0.0-$(git rev-parse --short HEAD)"; fi
+          fi
+          [ -n "$code" ] || code="$(git rev-list --count HEAD)"
+          echo "name=$name" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+
+      - name: Keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.STASHLING_KEYSTORE_BASE64 }}
+        run: |
+          [ -n "$KEYSTORE_BASE64" ] || { echo "::error::STASHLING_KEYSTORE_BASE64 is not set"; exit 1; }
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/stashling-release.jks"
+
+      - name: Build signed APK
+        env:
+          STASHLING_KEYSTORE_FILE: ${{ runner.temp }}/stashling-release.jks
+          STASHLING_KEYSTORE_PASSWORD: ${{ secrets.STASHLING_KEYSTORE_PASSWORD }}
+          STASHLING_KEY_ALIAS: ${{ secrets.STASHLING_KEY_ALIAS }}
+          STASHLING_KEY_PASSWORD: ${{ secrets.STASHLING_KEY_PASSWORD }}
+          STASHLING_VERSION_NAME: ${{ steps.version.outputs.name }}
+          STASHLING_VERSION_CODE: ${{ steps.version.outputs.code }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          ./gradlew :app:assembleRelease -x test -x lint
+          apk="stashling-${STASHLING_VERSION_NAME}.apk"
+          mv app/build/outputs/apk/release/app-release.apk "$apk"
+          echo "APK=$apk" >> "$GITHUB_ENV"
+
+      - name: Remove keystore
+        if: always()
+        run: rm -f "$RUNNER_TEMP/stashling-release.jks"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: stashling-${{ steps.version.outputs.name }}
+          path: |
+            ${{ env.APK }}
+            app/build/outputs/mapping/release/mapping.txt
+
+      - name: GitHub Release
+        if: github.ref_type == 'tag'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$GITHUB_REF_NAME" "$APK" --title "Stashling ${{ steps.version.outputs.name }}" --generate-notes

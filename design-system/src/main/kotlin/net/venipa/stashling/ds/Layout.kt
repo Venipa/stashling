@@ -153,13 +153,14 @@ fun GroupRow(
     icon: ImageVector? = null,
     onClick: (() -> Unit)? = null,
     trailing: @Composable (() -> Unit)? = null,
+    leading: @Composable (() -> Unit)? = null, // instead of [icon], e.g. an avatar (40dp)
 ) {
     val cs = MaterialTheme.colorScheme
     ListItem(
         headlineContent = { Text(headline) },
         modifier = modifier.clip(RoundedCornerShape(4.dp)).then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
         supportingContent = supporting?.let { { Text(it) } },
-        leadingContent = icon?.let {
+        leadingContent = leading ?: icon?.let {
             {
                 Box(Modifier.size(40.dp).background(cs.secondaryContainer, CircleShape), contentAlignment = Alignment.Center) {
                     Icon(it, null, tint = cs.onSecondaryContainer)

@@ -1,0 +1,31 @@
+# Debug build, unit tests and formatting on pushes and PRs to master and feat/**. Needs no secrets.
+name: ci
+
+on:
+  push:
+    branches: [master, "feat/**"]
+  pull_request:
+    branches: [master, "feat/**"]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0 # git hash in BuildConfig
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "22"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          cache-encryption-key: ${{ secrets.GRADLE_ENCRYPTION_KEY }}
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: "platforms;android-37.2 build-tools;36.0.0 platform-tools"
+
+      - run: ./gradlew assembleDebug testDebugUnitTest spotlessCheck

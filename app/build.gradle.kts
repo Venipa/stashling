@@ -1,5 +1,9 @@
 import com.android.build.api.artifact.SingleArtifact
+import groovy.json.JsonOutput
+import groovy.json.JsonSlurper
 import org.w3c.dom.Element
+import java.net.HttpURLConnection
+import java.net.URI
 import javax.xml.parsers.DocumentBuilderFactory
 
 plugins {
@@ -10,6 +14,92 @@ plugins {
 
 fun releaseProp(name: String): String? =
     (providers.environmentVariable(name).orNull ?: providers.gradleProperty(name).orNull)?.takeIf { it.isNotBlank() }
+
+// Short commit for About; "+dirty" when tracked files differ from HEAD (diff --quiet: only the exit code is a config input,
+// so edits don't invalidate the configuration cache). "unknown" without git or outside a checkout.
+val gitHash: String =
+    runCatching {
+        providers
+            .exec { commandLine("git", "rev-parse", "--short", "HEAD") }
+            .standardOutput.asText
+            .get()
+            .trim()
+    }.getOrNull()
+        ?.takeIf { it.isNotEmpty() }
+        ?.let { sha ->
+            val dirty =
+                runCatching {
+                    providers
+                        .exec {
+                            commandLine("git", "diff", "--quiet", "HEAD")
+                            isIgnoreExitValue = true
+                        }.result
+                        .get()
+                        .exitValue != 0
+                }.getOrDefault(false)
+            if (dirty) "$sha+dirty" else sha
+        } ?: "unknown"
+
+/**
+ * assets/contributors.json for About. Release: GitHub's contributors API (GITHUB_TOKEN if set, 5 s timeouts), reduced to
+ * login/html_url/avatar_url/contributions of users with GitHub https links; any failure keeps [fallback]. Other builds: [fallback].
+ */
+abstract class ContributorsTask : DefaultTask() {
+    @get:Input abstract val fetch: Property<Boolean>
+
+    @get:InputFile
+    @get:PathSensitive(PathSensitivity.NONE)
+    abstract val fallback: RegularFileProperty
+
+    // Internal: a credential, not a build input.
+    @get:Internal abstract val token: Property<String>
+
+    @get:OutputDirectory abstract val outputDir: DirectoryProperty
+
+    init {
+        // The fetched list changes without any input changing.
+        outputs.upToDateWhen { !fetch.get() }
+    }
+
+    @TaskAction
+    fun run() {
+        val out = outputDir.get().file("contributors.json").asFile
+        out.parentFile.mkdirs()
+        val fallbackText = fallback.get().asFile.readText()
+        if (!fetch.get()) return out.writeText(fallbackText)
+        val text =
+            runCatching {
+                val c = URI("https://api.github.com/repos/Venipa/stashling/contributors").toURL().openConnection() as HttpURLConnection
+                c.connectTimeout = 5_000
+                c.readTimeout = 5_000
+                c.setRequestProperty("Accept", "application/vnd.github+json")
+                c.setRequestProperty("User-Agent", "stashling-build")
+                token.orNull?.takeIf { it.isNotBlank() }?.let { c.setRequestProperty("Authorization", "Bearer $it") }
+                check(c.responseCode == 200) { "HTTP ${c.responseCode}" }
+                val list = JsonSlurper().parseText(c.inputStream.bufferedReader().use { it.readText() }) as List<*>
+                val clean =
+                    list.filterIsInstance<Map<*, *>>().filter { it["type"] == "User" }.mapNotNull { m ->
+                        val login = m["login"] as? String ?: return@mapNotNull null
+                        val html = (m["html_url"] as? String)?.takeIf { it.startsWith("https://github.com/") } ?: return@mapNotNull null
+                        val avatar =
+                            (m["avatar_url"] as? String)?.takeIf { it.startsWith("https://avatars.githubusercontent.com/") }
+                                ?: return@mapNotNull null
+                        mapOf(
+                            "login" to login,
+                            "html_url" to html,
+                            "avatar_url" to avatar,
+                            "contributions" to ((m["contributions"] as? Number)?.toInt() ?: 0),
+                        )
+                    }
+                check(clean.isNotEmpty()) { "empty list" }
+                JsonOutput.prettyPrint(JsonOutput.toJson(clean))
+            }.getOrElse {
+                logger.warn("Contributors: GitHub fetch failed (${it.message}); using ${fallback.get().asFile.name}.")
+                fallbackText
+            }
+        out.writeText(text)
+    }
+}
 
 android {
     namespace = "net.venipa.stashling"
@@ -31,6 +121,7 @@ android {
             } ?: 1
         versionName = releaseProp("STASHLING_VERSION_NAME") ?: "0.1.0"
         manifestPlaceholders["appLabel"] = "@string/app_name"
+        buildConfigField("String", "GIT_HASH", "\"$gitHash\"")
     }
 
     // The app is English only: drop the translations AndroidX and Material bundle. Add locales with translations.
@@ -110,6 +201,14 @@ val expectedPermissions =
 val checkPermissionSet = tasks.register("checkPermissionSet")
 androidComponents {
     onVariants { variant ->
+        val contributors =
+            tasks.register<ContributorsTask>("generate${variant.name.replaceFirstChar(Char::uppercase)}Contributors") {
+                fetch.set(variant.buildType == "release")
+                fallback.set(layout.projectDirectory.file("contributors.json"))
+                token.set(providers.environmentVariable("GITHUB_TOKEN"))
+                outputDir.set(layout.buildDirectory.dir("generated/contributors/${variant.name}"))
+            }
+        variant.sources.assets?.addGeneratedSourceDirectory(contributors, ContributorsTask::outputDir)
         val manifest = variant.artifacts.get(SingleArtifact.MERGED_MANIFEST)
         val perVariant =
             tasks.register("check${variant.name.replaceFirstChar(Char::uppercase)}PermissionSet") {
