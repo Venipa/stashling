@@ -64,6 +64,8 @@
     <string name="browse_recent">Recent searches</string>
     <string name="browse_reset">Reset filters</string>
     <string name="browse_no_category">Other</string>
+    <string name="browse_tags_by_category">By category</string>
+    <string name="browse_tags_az">A–Z</string>
     <string name="library_downloading_open">Open downloads</string>
     <!-- detail -->
     <string name="detail_back">Back</string>

@@ -2,6 +2,7 @@ package net.venipa.stashling.feature.browse
 
 import androidx.activity.compose.BackHandler
 import androidx.annotation.StringRes
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
@@ -18,6 +19,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
@@ -31,6 +33,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
@@ -45,6 +48,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
@@ -61,8 +65,14 @@ import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.SortDirection
 import net.venipa.stashling.core.stash.Tag
 import net.venipa.stashling.ds.ActionButton
+import net.venipa.stashling.ds.AlphabetRail
+import net.venipa.stashling.ds.AlphabetRailWidth
 import net.venipa.stashling.ds.AppBottomSheet
+import net.venipa.stashling.ds.EmptyState
 import net.venipa.stashling.ds.FloatingHeader
+import net.venipa.stashling.ds.INDEX_LETTERS
+import net.venipa.stashling.ds.LoadingPill
+import net.venipa.stashling.ds.RefreshBox
 import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.SkeletonBox
 import net.venipa.stashling.ds.SkeletonText
@@ -70,13 +80,17 @@ import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.fieldColors
+import net.venipa.stashling.ds.indexLetter
+import net.venipa.stashling.ds.letterPositions
 import net.venipa.stashling.ds.rememberCollapsingHeader
 import net.venipa.stashling.ds.stableFieldHeight
 import net.venipa.stashling.feature.common.BrowseIcons
+import net.venipa.stashling.feature.common.ErrorState
 import net.venipa.stashling.feature.common.FilterButton
 import net.venipa.stashling.feature.common.ListModeSegmented
 import net.venipa.stashling.feature.common.MediaRow
 import net.venipa.stashling.feature.common.PagedGrid
+import net.venipa.stashling.feature.common.PagedState
 import net.venipa.stashling.feature.common.PosterTile
 import net.venipa.stashling.feature.common.Region
 import net.venipa.stashling.feature.common.SceneRowSkeleton
@@ -86,6 +100,7 @@ import net.venipa.stashling.feature.common.listPadding
 import net.venipa.stashling.feature.common.rememberSceneListMode
 import net.venipa.stashling.feature.common.tabViewModel
 import net.venipa.stashling.nav.LocalDockInset
+import kotlin.math.roundToInt
 
 private enum class Sheet { Filters, Tags, Studio, Performer, Date }
 
@@ -129,7 +144,7 @@ fun BrowseScreen(
     onOpenTag: (String) -> Unit,
 ) {
     val c = LocalAppContainer.current
-    val vm = tabViewModel { BrowseViewModel(c.stash) }
+    val vm = tabViewModel { BrowseViewModel(c.stash, c.settings.settings) }
     val kind by vm.kind.collectAsState()
     val f by vm.filters.collectAsState()
     val mode by rememberSceneListMode()
@@ -151,16 +166,17 @@ fun BrowseScreen(
                 focus.clearFocus()
             }, onPerformer = onOpenPerformer, onStudio = onOpenStudio, onTag = onOpenTag)
         } else {
-            key(kind) { Results(vm, kind, mode, padding, onOpenScene, onOpenPerformer, onOpenStudio, onOpenTag) }
+            key(kind) { Results(vm, kind, f, mode, padding, { headerPx + header.offsetPx }, onOpenScene, onOpenPerformer, onOpenStudio, onOpenTag) }
         }
         FloatingHeader(
             header,
             Modifier.onSizeChanged { headerPx = it.height },
             collapsible = {
-                StashSegmented(BrowseKind.entries.map { stringResource(it.label) }, kind.ordinal, { vm.kind.value = BrowseKind.entries[it] }, Modifier.padding(horizontal = Space.L).padding(top = Space.S))
+                StashSegmented(BrowseKind.entries.map { stringResource(it.label) }, kind.ordinal, { vm.kind.value = BrowseKind.entries[it] }, icons = listOf(StashlingIcons.Scenes, StashlingIcons.Person, StashlingIcons.Studio, StashlingIcons.Tag), modifier = Modifier.padding(horizontal = Space.L).padding(top = Space.S))
             },
             pinned = {
-                Row(Modifier.padding(horizontal = Space.L, vertical = Space.S), horizontalArrangement = Arrangement.spacedBy(Space.S), verticalAlignment = Alignment.CenterVertically) {
+                // Solid behind the always-visible row so cards never show between pill and button; the kinds above fade under the edge band.
+                Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = Space.L, vertical = Space.S), horizontalArrangement = Arrangement.spacedBy(Space.S), verticalAlignment = Alignment.CenterVertically) {
                     TextField(
                         text,
                         {
@@ -261,8 +277,10 @@ fun BrowseScreen(
 private fun Results(
     vm: BrowseViewModel,
     kind: BrowseKind,
+    f: Filters,
     mode: net.venipa.stashling.core.data.ListMode,
     padding: PaddingValues,
+    headerBottom: () -> Float,
     onOpenScene: (String) -> Unit,
     onOpenPerformer: (String) -> Unit,
     onOpenStudio: (String) -> Unit,
@@ -279,21 +297,27 @@ private fun Results(
         // 6A: 2:3 grid, name + scene count.
         BrowseKind.Performers -> {
             val st by vm.performers.state.collectAsState()
-            PagedGrid(st, { it.id }, GridCells.Adaptive(150.dp), padding, vm::loadMore, vm::retry, empty, gridState = grid, onRefresh = vm::refresh) { _, p ->
-                PosterTile(p.name, stringResource(R.string.browse_scenes_count, p.sceneCount), (p.images.firstOrNull() ?: p.thumbnail)?.sized(300), 2f / 3f, { onOpenPerformer(p.id) })
+            NameRail(st, f.performer.sort == PerformerSort.NAME, padding, vm::loadMore, { grid.scrollToItem(it) }, { it.name }) { padding ->
+                PagedGrid(st, { it.id }, GridCells.Adaptive(150.dp), padding, vm::loadMore, vm::retry, empty, gridState = grid, onRefresh = vm::refresh) { _, p ->
+                    PosterTile(p.name, stringResource(R.string.browse_scenes_count, p.sceneCount), (p.images.firstOrNull() ?: p.thumbnail)?.sized(300), 2f / 3f, { onOpenPerformer(p.id) })
+                }
             }
         }
 
         // 6B: list rows, logo (contained) + name + parent studio.
         BrowseKind.Studios -> {
             val st by vm.studios.state.collectAsState()
-            PagedGrid(st, { it.id }, GridCells.Fixed(1), padding, vm::loadMore, vm::retry, empty, gridState = grid, spacing = 2.dp, onRefresh = vm::refresh, skeleton = { i, n -> SceneRowSkeleton(i, n) }) { i, s ->
-                MediaRow(s.name, s.parent?.name, s.images.firstOrNull()?.sized(300), i, st.items.size, { onOpenStudio(s.id) }, scale = ContentScale.Fit)
+            NameRail(st, f.studio.sort == NameSort.NAME, padding, vm::loadMore, { grid.scrollToItem(it) }, { it.name }) { padding ->
+                PagedGrid(st, { it.id }, GridCells.Fixed(1), padding, vm::loadMore, vm::retry, empty, gridState = grid, spacing = 2.dp, onRefresh = vm::refresh, skeleton = { i, n -> SceneRowSkeleton(i, n) }) { i, s ->
+                    MediaRow(s.name, s.parent?.name, s.images.firstOrNull()?.sized(300), i, st.items.size, { onOpenStudio(s.id) }, scale = ContentScale.Fit)
+                }
             }
         }
 
-        // 6A: grouped list under category headers (loaded pages re-sorted by category, name order kept inside).
-        BrowseKind.Tags -> {
+        BrowseKind.Tags -> if (f.tagsAz) {
+            AzTags(vm, padding, headerBottom, onOpenTag)
+        } else {
+            // 6A: grouped list under category headers (loaded pages re-sorted by category, name order kept inside).
             val st by vm.tags.state.collectAsState()
             val sorted = remember(st.items) { st.items.sortedWith(compareBy(nullsLast()) { it.category }) }
             val pos = remember(sorted) {
@@ -321,6 +345,82 @@ private fun Results(
                 }
             }
         }
+    }
+}
+
+private fun PaddingValues.withRail() = PaddingValues(start = Space.L, top = calculateTopPadding(), end = AlphabetRailWidth + Space.Xs, bottom = calculateBottomPadding())
+
+/**
+ * A name-sorted remote list with the letter rail. Totals up to 500 are loaded completely so every letter is reachable; the rail
+ * shows once the whole list is loaded (shortcut: bigger name-sorted lists get no rail, jumping would need page-by-page loading).
+ */
+@Composable
+private fun <T> NameRail(
+    st: PagedState<T>,
+    byName: Boolean,
+    padding: PaddingValues,
+    loadMore: () -> Unit,
+    onJump: suspend (Int) -> Unit,
+    name: (T) -> String,
+    content: @Composable (PaddingValues) -> Unit,
+) {
+    LaunchedEffect(byName, st) { if (byName && st.total in 0..RAIL_MAX && st.hasNext && !st.loading && st.error == null) loadMore() }
+    val rail = byName && !st.hasNext && st.items.size > 1
+    val positions = remember(st.items, rail) { if (rail) letterPositions(st.items, name = name) else emptyMap() }
+    Box(Modifier.fillMaxSize()) {
+        content(if (rail) padding.withRail() else padding)
+        if (rail) AlphabetRail(positions, onJump, Modifier.align(Alignment.TopEnd).padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()))
+    }
+}
+
+private const val RAIL_MAX = 500
+
+/** Tags A–Z: every tag, sticky letter headers, the letter rail. */
+@OptIn(ExperimentalFoundationApi::class)
+@Composable
+private fun AzTags(
+    vm: BrowseViewModel,
+    padding: PaddingValues,
+    headerBottom: () -> Float,
+    onOpenTag: (String) -> Unit,
+) {
+    val st by vm.allTags.collectAsState()
+    val groups = remember(st.items) { st.items.groupBy { indexLetter(it.name) }.toSortedMap(compareBy { INDEX_LETTERS.indexOf(it) }) }
+    // Header + rows per letter, so a letter's position is its header item.
+    val positions = remember(groups) {
+        var i = 0
+        groups.mapValues { (_, g) -> i.also { i += 1 + g.size } }
+    }
+    val list = vm.azList
+    // Sticky headers stick at the list's own top, not below its content padding: the list starts at the header's live bottom edge
+    // (read in the layout phase, so the collapse does not recompose) instead of scrolling under it.
+    val top = Modifier.layout { m, c ->
+        val y = headerBottom().roundToInt().coerceIn(0, c.maxHeight)
+        val p = m.measure(c.copy(minHeight = (c.minHeight - y).coerceAtLeast(0), maxHeight = c.maxHeight - y))
+        layout(p.width, c.maxHeight) { p.place(0, y) }
+    }
+    Box(Modifier.fillMaxSize()) {
+        RefreshBox(st.refreshing, vm::refresh, Modifier.fillMaxSize().then(top)) {
+            LazyColumn(Modifier.fillMaxSize(), list, PaddingValues(start = Space.L, top = Space.S, end = AlphabetRailWidth + Space.Xs, bottom = padding.calculateBottomPadding()), verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                val error = st.error
+                when {
+                    st.items.isEmpty() && error != null -> item { ErrorState(error, vm::retry) }
+
+                    st.items.isEmpty() && st.loading -> items(8) { SkeletonBox(Modifier.fillMaxWidth().height(56.dp), groupShape(it, 8)) }
+
+                    st.items.isEmpty() -> item { EmptyState(StashlingIcons.Search, stringResource(R.string.browse_empty)) }
+
+                    else -> groups.forEach { (l, g) ->
+                        stickyHeader(key = "h:$l") {
+                            Text(l.toString(), Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).padding(horizontal = Space.Xs, vertical = Space.S), style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary)
+                        }
+                        itemsIndexed(g, key = { _, t -> t.id }) { i, t -> TagRow(t, i, g.size) { onOpenTag(t.id) } }
+                    }
+                }
+            }
+        }
+        if (positions.size > 1) AlphabetRail(positions, { list.scrollToItem(it) }, Modifier.align(Alignment.TopEnd).padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()))
+        LoadingPill(st.loading && st.items.isEmpty(), Modifier.align(Alignment.Center))
     }
 }
 
@@ -402,7 +502,13 @@ private fun FilterSheet(
     val any = stringResource(R.string.browse_any)
     Column(Modifier.verticalScroll(rememberScrollState())) {
         SheetColumn(stringResource(R.string.browse_filters)) {
-            SectionHeader(stringResource(R.string.browse_sort_title_sheet))
+            if (kind == BrowseKind.Tags) {
+                SectionHeader(stringResource(R.string.browse_layout))
+                StashSegmented(listOf(stringResource(R.string.browse_tags_by_category), stringResource(R.string.browse_tags_az)), if (f.tagsAz) 1 else 0, { i -> vm.update { it.copy(tagsAz = i == 1) } })
+            }
+            // A–Z tags are always by name.
+            val showSort = kind != BrowseKind.Tags || !f.tagsAz
+            if (showSort) SectionHeader(stringResource(R.string.browse_sort_title_sheet))
             // Sort chips + direction for the current kind.
             val (names, selected, desc) = when (kind) {
                 BrowseKind.Scenes -> Triple(SceneSort.entries.map { it.res() }, f.scene.sort.ordinal, f.scene.direction == SortDirection.DESC)
@@ -410,31 +516,35 @@ private fun FilterSheet(
                 BrowseKind.Studios -> Triple(NameSort.entries.map { it.res() }, f.studio.sort.ordinal, f.studio.direction == SortDirection.DESC)
                 BrowseKind.Tags -> Triple(NameSort.entries.map { it.res() }, f.tag.sort.ordinal, f.tag.direction == SortDirection.DESC)
             }
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-                names.forEachIndexed { i, res ->
-                    FilterChip(i == selected, {
-                        vm.update {
-                            when (kind) {
-                                BrowseKind.Scenes -> it.copy(scene = it.scene.copy(sort = SceneSort.entries[i]))
-                                BrowseKind.Performers -> it.copy(performer = it.performer.copy(sort = PerformerSort.entries[i]))
-                                BrowseKind.Studios -> it.copy(studio = it.studio.copy(sort = NameSort.entries[i]))
-                                BrowseKind.Tags -> it.copy(tag = it.tag.copy(sort = NameSort.entries[i]))
+            if (showSort) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
+                    names.forEachIndexed { i, res ->
+                        FilterChip(i == selected, {
+                            vm.update {
+                                when (kind) {
+                                    BrowseKind.Scenes -> it.copy(scene = it.scene.copy(sort = SceneSort.entries[i]))
+                                    BrowseKind.Performers -> it.copy(performer = it.performer.copy(sort = PerformerSort.entries[i]))
+                                    BrowseKind.Studios -> it.copy(studio = it.studio.copy(sort = NameSort.entries[i]))
+                                    BrowseKind.Tags -> it.copy(tag = it.tag.copy(sort = NameSort.entries[i]))
+                                }
                             }
-                        }
-                    }, { Text(stringResource(res)) })
-                }
-            }
-            StashSegmented(listOf(stringResource(R.string.browse_ascending), stringResource(R.string.browse_descending)), if (desc) 1 else 0, { i ->
-                val d = dir(i == 1)
-                vm.update {
-                    when (kind) {
-                        BrowseKind.Scenes -> it.copy(scene = it.scene.copy(direction = d))
-                        BrowseKind.Performers -> it.copy(performer = it.performer.copy(direction = d))
-                        BrowseKind.Studios -> it.copy(studio = it.studio.copy(direction = d))
-                        BrowseKind.Tags -> it.copy(tag = it.tag.copy(direction = d))
+                        }, { Text(stringResource(res)) })
                     }
                 }
-            })
+            }
+            if (showSort) {
+                StashSegmented(listOf(stringResource(R.string.browse_ascending), stringResource(R.string.browse_descending)), if (desc) 1 else 0, { i ->
+                    val d = dir(i == 1)
+                    vm.update {
+                        when (kind) {
+                            BrowseKind.Scenes -> it.copy(scene = it.scene.copy(direction = d))
+                            BrowseKind.Performers -> it.copy(performer = it.performer.copy(direction = d))
+                            BrowseKind.Studios -> it.copy(studio = it.studio.copy(direction = d))
+                            BrowseKind.Tags -> it.copy(tag = it.tag.copy(direction = d))
+                        }
+                    }
+                })
+            }
             when (kind) {
                 BrowseKind.Scenes -> {
                     val s = f.scene
@@ -442,7 +552,6 @@ private fun FilterSheet(
                         SectionHeader(stringResource(R.string.browse_region))
                         StashSegmented(Region.entries.map { stringResource(it.label) }, f.region.ordinal, { i -> vm.update { it.copy(region = Region.entries[i]) } })
                     }
-                    SectionHeader(stringResource(R.string.browse_filters))
                     val rows = listOf(
                         Triple(R.string.browse_filter_studio, s.studioIds.firstOrNull()?.let { labels[it] }, Sheet.Studio),
                         Triple(R.string.browse_filter_performer, s.performerIds.firstOrNull()?.let { labels[it] }, Sheet.Performer),

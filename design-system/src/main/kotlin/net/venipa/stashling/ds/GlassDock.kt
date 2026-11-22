@@ -79,7 +79,7 @@ fun GlassDock(
                 .padding(horizontal = 16.dp)
                 .padding(bottom = 16.dp)
                 .glass(glass, GlassRole.Dock)
-                .animateContentSize(MaterialTheme.motionScheme.defaultSpatialSpec(), Alignment.BottomCenter)
+                .animateContentSize(MaterialTheme.motionScheme.defaultEffectsSpec(), Alignment.BottomCenter)
                 .selectableGroup(),
         ) {
             if (top != null) {

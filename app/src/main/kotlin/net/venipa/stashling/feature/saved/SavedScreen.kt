@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -73,6 +74,8 @@ import net.venipa.stashling.core.whisparr.AddMode
 import net.venipa.stashling.core.whisparr.PanelState
 import net.venipa.stashling.ds.ActionButton
 import net.venipa.stashling.ds.ActionSheet
+import net.venipa.stashling.ds.AlphabetRail
+import net.venipa.stashling.ds.AlphabetRailWidth
 import net.venipa.stashling.ds.AppSnackbar
 import net.venipa.stashling.ds.CollapsingHeader
 import net.venipa.stashling.ds.EmptyState
@@ -83,6 +86,7 @@ import net.venipa.stashling.ds.SheetAction
 import net.venipa.stashling.ds.Space
 import net.venipa.stashling.ds.StashSegmented
 import net.venipa.stashling.ds.StashlingIcons
+import net.venipa.stashling.ds.letterPositions
 import net.venipa.stashling.ds.rememberCollapsingHeader
 import net.venipa.stashling.feature.common.ListModeToggle
 import net.venipa.stashling.feature.common.LoadMoreEffect
@@ -272,7 +276,9 @@ fun SavedScreen(
     ) { pad ->
         val rows = kind == BookmarkKind.SCENE && mode == ListMode.ROWS
         val gridState = vm.grids.getValue(kind)
-        val padding = listPadding(pad, dock)
+        // Title sort gets the letter rail (bookmarks start after the header + sort rows, grid index 2).
+        val rail = byTitle && list.size > 1
+        val padding = listPadding(pad, dock).let { if (rail) PaddingValues(start = Space.L, top = it.calculateTopPadding(), end = AlphabetRailWidth + Space.Xs, bottom = it.calculateBottomPadding()) else it }
         LoadMoreEffect(gridState, remoteState != null && remoteState.started && remoteState.hasNext && !remoteState.loading && remoteState.error == null) { remote?.loadMore() }
         val remoteItems = remoteState?.items.orEmpty()
         val grid: @Composable () -> Unit = {
@@ -326,7 +332,10 @@ fun SavedScreen(
                 }
             }
         }
-        if (remoteState != null) RefreshBox(remoteState.refreshing, vm::refreshRemote, Modifier.fillMaxSize()) { grid() } else grid()
+        Box(Modifier.fillMaxSize()) {
+            if (remoteState != null) RefreshBox(remoteState.refreshing, vm::refreshRemote, Modifier.fillMaxSize()) { grid() } else grid()
+            if (rail) AlphabetRail(remember(list) { letterPositions(list, 2) { it.title } }, { gridState.scrollToItem(it) }, Modifier.align(Alignment.TopEnd).padding(top = padding.calculateTopPadding(), bottom = padding.calculateBottomPadding()))
+        }
     }
 
     sheetFor?.let { b ->

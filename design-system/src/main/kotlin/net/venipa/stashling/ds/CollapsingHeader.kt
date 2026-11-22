@@ -33,6 +33,9 @@ class CollapsingHeaderState internal constructor() {
     internal var height by mutableFloatStateOf(0f)
     internal var offset by mutableFloatStateOf(0f)
 
+    /** Current slide in px (0 = expanded, -height = collapsed); read it in a layout/draw phase to follow the header edge. */
+    val offsetPx: Float get() = offset
+
     val connection =
         object : NestedScrollConnection {
             override fun onPreScroll(

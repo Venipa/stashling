@@ -45,11 +45,17 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
+import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.stash.CachingStashDbApi
 import net.venipa.stashling.core.stash.Favorites
 import net.venipa.stashling.core.stash.Performer
@@ -70,6 +76,7 @@ import net.venipa.stashling.feature.common.PageLoader
 import net.venipa.stashling.feature.common.Region
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashImage
+import net.venipa.stashling.feature.common.apiValue
 import net.venipa.stashling.feature.common.fullSpan
 import net.venipa.stashling.feature.common.javTagId
 import net.venipa.stashling.feature.common.listPadding
@@ -84,7 +91,12 @@ enum class HomeTab(val label: Int) {
     Favorites(R.string.home_favorites),
 }
 
-class HomeViewModel(private val stash: CachingStashDbApi) : ViewModel() {
+class HomeViewModel(
+    private val stash: CachingStashDbApi,
+    settings: Flow<Settings>,
+) : ViewModel() {
+    private val gender = settings.map { it.performerGender.apiValue() }.distinctUntilChanged().stateIn(viewModelScope, SharingStarted.Eagerly, null)
+
     private val _selected = MutableStateFlow(HomeTab.Trending)
     val selected: StateFlow<HomeTab> = _selected
     private val _region = MutableStateFlow(Region.All)
@@ -118,12 +130,13 @@ class HomeViewModel(private val stash: CachingStashDbApi) : ViewModel() {
 
     init {
         viewModelScope.launch { _javTag.value = javTagId(stash) }
-        loadFavorites()
+        // Reloads the avatar row when the performer gender setting changes.
+        viewModelScope.launch { gender.collect { loadFavorites() } }
     }
 
     private fun loadFavorites() = viewModelScope.launch {
         try {
-            favorites.value = stash.performers(PerformerFilter(favoritesOnly = true), 1).items
+            favorites.value = stash.performers(PerformerFilter(favoritesOnly = true, gender = gender.value), 1).items
         } catch (e: CancellationException) {
             throw e
         } catch (_: Exception) {
@@ -154,7 +167,7 @@ fun HomeScreen(
     onOpenPerformer: (String) -> Unit,
 ) {
     val c = LocalAppContainer.current
-    val vm = tabViewModel { HomeViewModel(c.stash) }
+    val vm = tabViewModel { HomeViewModel(c.stash, c.settings.settings) }
     val tab by vm.selected.collectAsState()
     val region by vm.region.collectAsState()
     val javTag by vm.javTag.collectAsState()
@@ -221,7 +234,7 @@ private val DockItemShape = concentricShape(GlassCorner, 8.dp)
 @Composable
 fun HomeDockControls() {
     val c = LocalAppContainer.current
-    val vm = tabViewModel { HomeViewModel(c.stash) }
+    val vm = tabViewModel { HomeViewModel(c.stash, c.settings.settings) }
     val tab by vm.selected.collectAsState()
     val region by vm.region.collectAsState()
     val javTag by vm.javTag.collectAsState()
@@ -232,7 +245,7 @@ fun HomeDockControls() {
         HomeTab.entries.forEach { t ->
             val on = t == tab
             // Weight never reaches 0 (Row rejects it); the hidden chips fade while they shrink.
-            val w by animateFloatAsState(if (collapsed && !on) 0.001f else 1f, MaterialTheme.motionScheme.defaultSpatialSpec(), label = "homeChip")
+            val w by animateFloatAsState(if (collapsed && !on) 0.001f else 1f, MaterialTheme.motionScheme.defaultEffectsSpec(), label = "homeChip")
             Box(
                 Modifier
                     .weight(w.coerceAtLeast(0.001f))

@@ -18,6 +18,8 @@ data class PagedState<T>(
     val started: Boolean = false,
     /** Pull to refresh: page 1 is reloading while the old items stay on screen. */
     val refreshing: Boolean = false,
+    /** Server-side total (Page.count); -1 until the first page. */
+    val total: Int = -1,
 )
 
 /** ViewModel page loader (1-based pages, 40 per page via the API default). An error stops auto-loading until [retry]. */
@@ -52,7 +54,7 @@ class PageLoader<T>(
             try {
                 val p = fetch(next)
                 page = next
-                _state.update { PagedState((it.items + p.items).distinctBy(key), hasNext = p.hasNext, started = true) }
+                _state.update { PagedState((it.items + p.items).distinctBy(key), hasNext = p.hasNext, started = true, total = p.count) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -70,7 +72,7 @@ class PageLoader<T>(
             try {
                 val p = fetch(1)
                 page = 1
-                _state.value = PagedState(p.items.distinctBy(key), hasNext = p.hasNext, started = true)
+                _state.value = PagedState(p.items.distinctBy(key), hasNext = p.hasNext, started = true, total = p.count)
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
