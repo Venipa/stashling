@@ -1,6 +1,5 @@
 package net.venipa.stashling.ds
 
-import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.animateFloatAsState
@@ -205,7 +204,6 @@ private fun DockTabItem(
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
     val press by animateFloatAsState(if (pressed) 0.92f else 1f, MaterialTheme.motionScheme.fastSpatialSpec(), label = "dockPress")
-    val motion = MaterialTheme.motionScheme
     Column(
         modifier
             .heightIn(min = 48.dp)
@@ -217,9 +215,8 @@ private fun DockTabItem(
             .padding(vertical = 4.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
-        Box(Modifier.size(ShapeSize), contentAlignment = Alignment.Center) { Icon(tab.icon, tab.label.takeIf { compact }, Modifier.height(22.dp), tint = color) }
-        AnimatedVisibility(!compact, enter = fadeIn(motion.defaultEffectsSpec()), exit = fadeOut(motion.defaultEffectsSpec())) {
-            Text(tab.label, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        }
+        // Labels stay at full size in the compact dock too; only the context rows above the tabs collapse.
+        Box(Modifier.size(ShapeSize), contentAlignment = Alignment.Center) { Icon(tab.icon, null, Modifier.height(22.dp), tint = color) }
+        Text(tab.label, style = MaterialTheme.typography.labelMedium, color = color, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
