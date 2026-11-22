@@ -17,6 +17,7 @@ import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.lerp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
@@ -136,20 +137,19 @@ fun StashlingTheme(
     }
 }
 
+// Background and the lowest surfaces go pure black; every layer above keeps the scheme's own tone (dynamic or seed),
+// pulled toward black so the tint stays M3/You-coloured but sits lower than the stock dark scheme.
 private fun ColorScheme.oled(): ColorScheme = copy(
     background = Color.Black,
     surface = Color.Black,
     surfaceContainerLowest = Color.Black,
     surfaceDim = Color.Black,
-    // Neutral greys for every container and variant role: the scheme's tinted (blue/violet/dynamic) layers must not show on OLED.
-    surfaceContainerLow = Color(0xFF0A0A0A),
-    surfaceContainer = Color(0xFF121212),
-    surfaceContainerHigh = Color(0xFF1A1A1A),
-    surfaceContainerHighest = Color(0xFF242424),
-    surfaceBright = Color(0xFF2A2A2A),
-    surfaceVariant = Color(0xFF1A1A1A),
-    // Tonal elevation overlays surfaceTint; black keeps raised surfaces neutral.
-    surfaceTint = Color.Black,
-    // The dock's glass takes a hint of secondaryContainer: neutral on OLED.
-    secondaryContainer = Color(0xFF262626),
+    surfaceContainerLow = lerp(Color.Black, surfaceContainerLow, OledLayer),
+    surfaceContainer = lerp(Color.Black, surfaceContainer, OledLayer),
+    surfaceContainerHigh = lerp(Color.Black, surfaceContainerHigh, OledLayer),
+    surfaceContainerHighest = lerp(Color.Black, surfaceContainerHighest, OledLayer),
+    surfaceBright = lerp(Color.Black, surfaceBright, OledLayer),
+    surfaceVariant = lerp(Color.Black, surfaceVariant, OledLayer),
 )
+
+private const val OledLayer = 0.7f
