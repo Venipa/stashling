@@ -18,17 +18,19 @@ param(
     [string]$VersionName,
     [string]$VersionCode,
     [string]$EnvFile = ".env",
+    [string]$KeysFile = "keys/release.properties",   # same KEY=VALUE format; written next to the keystore (gitignored)
     [switch]$Bundle   # build an .aab instead of an .apk
 )
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
 
-# Load .env into the process environment so Gradle and the defaults below see it. The file overrides any already-set
+# Load keys/release.properties, then .env, into the process environment so Gradle and the defaults below see it. The file overrides any already-set
 # env var; explicit -Keystore etc. still win (applied after this). Lines: KEY=VALUE, '#' comments and blanks skipped;
 # surrounding quotes trimmed.
-if (Test-Path -LiteralPath $EnvFile) {
-    foreach ($line in Get-Content -LiteralPath $EnvFile) {
+foreach ($file in @($KeysFile, $EnvFile)) {
+    if (-not (Test-Path -LiteralPath $file)) { continue }
+    foreach ($line in Get-Content -LiteralPath $file) {
         $t = $line.Trim()
         if (-not $t -or $t.StartsWith("#")) { continue }
         $eq = $t.IndexOf("=")
