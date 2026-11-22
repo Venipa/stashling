@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Scene filters on studio / performer / tag pages (feature/common/SceneFilters.kt). -->
+<resources>
+    <string name="scene_filter_fixed">%1$s · this page</string>
+    <string name="scene_filter_sub_studios">Include sub-studios</string>
+    <string name="scene_filter_without_sub">Without sub-studios</string>
+    <string name="scene_filter_title">Search in title</string>
+</resources>

@@ -26,7 +26,6 @@ import net.venipa.stashling.R
 import net.venipa.stashling.core.data.BookmarkKind
 import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.SceneFilter
-import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.Tag
 import net.venipa.stashling.ds.GroupRow
 import net.venipa.stashling.ds.LocalStashHaptics
@@ -40,6 +39,9 @@ import net.venipa.stashling.feature.common.ListModeToggle
 import net.venipa.stashling.feature.common.Load
 import net.venipa.stashling.feature.common.LoadGate
 import net.venipa.stashling.feature.common.PageLoader
+import net.venipa.stashling.feature.common.PageSceneFilters
+import net.venipa.stashling.feature.common.SceneFilterBar
+import net.venipa.stashling.feature.common.SceneScope
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashTopBar
 import net.venipa.stashling.feature.common.collectVisible
@@ -52,10 +54,12 @@ class TagDetailViewModel(private val id: String, private val c: AppContainer) : 
     private val _state = MutableStateFlow<Load<Tag>>(Load.Loading)
     val state: StateFlow<Load<Tag>> = _state
     val actions = EntityActions(viewModelScope, c.bookmarks, BookmarkKind.TAG, MutableStateFlow(id))
-    val scenes = PageLoader<SceneCard>(viewModelScope, { it.id }) { p -> c.stash.scenes(SceneFilter(tagIds = listOf(id), sort = SceneSort.DATE), p) }
+    val filters = PageSceneFilters(viewModelScope, c, SceneScope.Tag)
+    val scenes = PageLoader<SceneCard>(viewModelScope, { it.id }) { p -> c.stash.scenes(filters.build(SceneFilter(tagIds = listOf(id))), p) }
 
     init {
         load()
+        filters.onChange { if (_state.value is Load.Data) scenes.reload() }
     }
 
     fun load() {
@@ -112,6 +116,7 @@ fun TagDetailScreen(
                     }
                 }
                 fullSpan("scenes-header") { SectionHeader(stringResource(R.string.detail_scenes), Modifier.padding(top = Space.S)) }
+                fullSpan("scene-filters") { SceneFilterBar(vm.filters, t.name) }
             })
         }
     }

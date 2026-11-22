@@ -49,7 +49,6 @@ import net.venipa.stashling.R
 import net.venipa.stashling.core.data.BookmarkKind
 import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.SceneFilter
-import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.Studio
 import net.venipa.stashling.ds.ActionSheet
 import net.venipa.stashling.ds.AppSnackbar
@@ -67,6 +66,9 @@ import net.venipa.stashling.feature.common.ListModeToggle
 import net.venipa.stashling.feature.common.Load
 import net.venipa.stashling.feature.common.LoadGate
 import net.venipa.stashling.feature.common.PageLoader
+import net.venipa.stashling.feature.common.PageSceneFilters
+import net.venipa.stashling.feature.common.SceneFilterBar
+import net.venipa.stashling.feature.common.SceneScope
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.StashTopBar
@@ -81,11 +83,18 @@ class StudioDetailViewModel(private val id: String, private val c: AppContainer)
     private val _state = MutableStateFlow<Load<Studio>>(Load.Loading)
     val state: StateFlow<Load<Studio>> = _state
     val actions = EntityActions(viewModelScope, c.bookmarks, BookmarkKind.STUDIO, MutableStateFlow(id))
-    private var studioIds = listOf(id)
-    val scenes = PageLoader<SceneCard>(viewModelScope, { it.id }) { p -> c.stash.scenes(SceneFilter(studioIds = studioIds, sort = SceneSort.DATE), p) }
+    private var children = emptyList<String>()
+    val filters = PageSceneFilters(viewModelScope, c, SceneScope.Studio)
+
+    // Scenes of the studio and (switch on, default) its sub-studios: one INCLUDES filter over all of them.
+    val scenes = PageLoader<SceneCard>(viewModelScope, { it.id }) { p ->
+        val ids = listOf(id) + if (filters.state.value.subStudios) children else emptyList()
+        c.stash.scenes(filters.build(SceneFilter(studioIds = ids)), p)
+    }
 
     init {
         load()
+        filters.onChange { if (_state.value is Load.Data) scenes.reload() }
     }
 
     fun load() {
@@ -94,8 +103,7 @@ class StudioDetailViewModel(private val id: String, private val c: AppContainer)
             _state.value = loadOf { c.stash.studio(id) }
             (_state.value as? Load.Data)?.value?.let { s ->
                 actions.favorite.value = s.isFavorite
-                // Scenes of the studio and its sub-studios: one INCLUDES filter over all of them.
-                studioIds = listOf(id) + s.children.map { it.id }
+                children = s.children.map { it.id }
                 scenes.reload()
             }
         }
@@ -158,6 +166,7 @@ fun StudioDetailScreen(
             ScenesGrid(scenes, mode, listPadding(pad), vm.scenes::loadMore, vm.scenes::retry, onOpenScene, onRefresh = vm::refresh, header = {
                 fullSpan("info") { Header(s, onOpenStudio, onOpenGallery) }
                 fullSpan("scenes-header") { SectionHeader(stringResource(R.string.detail_scenes), Modifier.padding(top = Space.S)) }
+                fullSpan("scene-filters") { SceneFilterBar(vm.filters, s.name, hasSubStudios = s.children.isNotEmpty()) }
             })
         }
     }

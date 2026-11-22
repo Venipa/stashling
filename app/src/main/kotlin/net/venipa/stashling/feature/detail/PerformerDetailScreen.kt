@@ -64,7 +64,6 @@ import net.venipa.stashling.core.stash.PerformerRef
 import net.venipa.stashling.core.stash.PerformerTrait
 import net.venipa.stashling.core.stash.SceneCard
 import net.venipa.stashling.core.stash.SceneFilter
-import net.venipa.stashling.core.stash.SceneSort
 import net.venipa.stashling.core.stash.TraitKey
 import net.venipa.stashling.ds.ActionSheet
 import net.venipa.stashling.ds.AppSnackbar
@@ -86,6 +85,9 @@ import net.venipa.stashling.feature.common.ListModeToggle
 import net.venipa.stashling.feature.common.Load
 import net.venipa.stashling.feature.common.LoadGate
 import net.venipa.stashling.feature.common.PageLoader
+import net.venipa.stashling.feature.common.PageSceneFilters
+import net.venipa.stashling.feature.common.SceneFilterBar
+import net.venipa.stashling.feature.common.SceneScope
 import net.venipa.stashling.feature.common.ScenesGrid
 import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.StashTopBar
@@ -105,15 +107,14 @@ class PerformerDetailViewModel(startId: String, private val c: AppContainer) : V
     private val id = MutableStateFlow(startId)
     private val _state = MutableStateFlow<Load<Performer>>(Load.Loading)
     val state: StateFlow<Load<Performer>> = _state
-    val studio = MutableStateFlow<String?>(null)
     val actions = EntityActions(viewModelScope, c.bookmarks, BookmarkKind.PERFORMER, id)
-    val scenes = PageLoader<SceneCard>(viewModelScope, { it.id }) { p -> c.stash.scenes(filter(), p) }
+    val filters = PageSceneFilters(viewModelScope, c, SceneScope.Performer)
+    val scenes = PageLoader<SceneCard>(viewModelScope, { it.id }) { p -> c.stash.scenes(filters.build(SceneFilter(performerIds = listOf(id.value))), p) }
 
     init {
         load()
+        filters.onChange { if (_state.value is Load.Data) scenes.reload() }
     }
-
-    private fun filter() = SceneFilter(performerIds = listOf(id.value), studioIds = listOfNotNull(studio.value), sort = SceneSort.DATE)
 
     fun load() {
         _state.value = Load.Loading
@@ -145,9 +146,10 @@ class PerformerDetailViewModel(startId: String, private val c: AppContainer) : V
         return null
     }
 
-    fun filterStudio(studioId: String?) {
-        studio.value = studioId
-        scenes.reload()
+    /** The studio chips set the same single studio filter as the sheet. */
+    fun filterStudio(studioId: String?, name: String) {
+        studioId?.let { filters.label(it, name) }
+        filters.update { it.copy(scene = it.scene.copy(studioIds = listOfNotNull(studioId))) }
     }
 
     private fun image(p: Performer) = (p.images.firstOrNull() ?: p.thumbnail)?.sized(300)
@@ -177,7 +179,8 @@ fun PerformerDetailScreen(
     val load by vm.state.collectAsState()
     val bookmarked by vm.actions.bookmarked.collectAsState()
     val favorite by vm.actions.favorite.collectAsState()
-    val studioId by vm.studio.collectAsState()
+    val sceneFilter by vm.filters.state.collectAsState()
+    val studioId = sceneFilter.scene.studioIds.firstOrNull()
     val scenes = vm.scenes.collectVisible(keepPerformer = (load as? Load.Data)?.value?.id ?: id)
     val mode by rememberSceneListMode()
     val snackbar = remember { SnackbarHostState() }
@@ -257,11 +260,14 @@ fun PerformerDetailScreen(
                     }
                     if (tab == 1) {
                         fullSpan("about") { About(p, onTrait) }
-                    } else if (p.studios.size > 1) {
+                    } else {
+                        fullSpan("scene-filters") { SceneFilterBar(vm.filters, p.name) }
+                    }
+                    if (tab == 0 && p.studios.size > 1) {
                         fullSpan("studios") {
                             Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(Space.S)) {
                                 p.studios.sortedByDescending { it.second }.forEach { (s, n) ->
-                                    StashFilterChip(studioId == s.id, { vm.filterStudio(if (studioId == s.id) null else s.id) }, { Text("${s.name} · $n") })
+                                    StashFilterChip(studioId == s.id, { vm.filterStudio(if (studioId == s.id) null else s.id, s.name) }, { Text("${s.name} · $n") })
                                 }
                             }
                         }
