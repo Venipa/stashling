@@ -1,0 +1,42 @@
+node_modules/
+dist/
+target/
+.superpowers/
+.taste-skill/
+*.keystore
+
+# Android / Gradle
+.gradle/
+.kotlin/
+build/
+local.properties
+.idea/
+*.iml
+.DS_Store
+Thumbs.db
+desktop.ini
+.vscode/
+*.log
+*.hprof
+captures/
+.externalNativeBuild/
+.cxx/
+*.apk
+*.aab
+
+# Release signing (never commit)
+*.jks
+*.p12
+keystore*.properties
+upload-key*.txt
+.env
+.env.*
+!.env.example
+
+
+# local dev screenshots
+screenshots/
+
+# Android signing keys
+keys/
+*.jks.base64.txt
