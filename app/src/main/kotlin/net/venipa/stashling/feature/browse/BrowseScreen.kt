@@ -128,7 +128,6 @@ fun BrowseScreen(
                         }
                     },
                     keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                    colors = TextFieldDefaults.colors(focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
                 )
                 ChipRow {
                     BrowseKind.entries.forEach { k -> FilterChip(k == kind, { vm.kind.value = k }, { Text(stringResource(k.label)) }) }
