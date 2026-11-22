@@ -105,9 +105,16 @@ internal fun BackupPage(onBack: () -> Unit) {
             error = try {
                 pending = withContext(Dispatchers.IO) {
                     val text = context.contentResolver.openInputStream(uri)!!.use { input ->
-                        val bytes = input.readNBytes(MAX_BYTES + 1)
-                        if (bytes.size > MAX_BYTES) throw BackupException(BackupException.Reason.Invalid)
-                        bytes.decodeToString()
+                        // readNBytes is API 33+ (min 31): read at most MAX_BYTES + 1 by hand.
+                        val out = java.io.ByteArrayOutputStream()
+                        val buf = ByteArray(8192)
+                        while (out.size() <= MAX_BYTES) {
+                            val n = input.read(buf)
+                            if (n < 0) break
+                            out.write(buf, 0, n)
+                        }
+                        if (out.size() > MAX_BYTES) throw BackupException(BackupException.Reason.Invalid)
+                        out.toByteArray().decodeToString()
                     }
                     BackupCodec.decode(text)
                 }
