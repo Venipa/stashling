@@ -1,4 +1,4 @@
-# Stachling
+# Stashling
 
 Android app for browsing [StashDB](https://stashdb.org) (stash-box) with local bookmarks, image galleries and Whisparr v3 integration (request, search, pick releases, track downloads).
 
