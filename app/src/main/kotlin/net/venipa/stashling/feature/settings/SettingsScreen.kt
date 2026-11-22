@@ -16,19 +16,25 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
+import kotlinx.coroutines.launch
 import net.venipa.stashling.LocalAppContainer
 import net.venipa.stashling.R
 import net.venipa.stashling.core.data.HiddenKind
+import net.venipa.stashling.core.data.ListMode
 import net.venipa.stashling.core.data.Settings
 import net.venipa.stashling.core.data.ThemeMode
 import net.venipa.stashling.ds.AppSnackbar
 import net.venipa.stashling.ds.GroupRow
 import net.venipa.stashling.ds.Gutter
 import net.venipa.stashling.ds.ScreenColumn
+import net.venipa.stashling.ds.SectionHeader
 import net.venipa.stashling.ds.Space
+import net.venipa.stashling.ds.StashSwitch
 import net.venipa.stashling.ds.StashlingIcons
 import net.venipa.stashling.ds.TonalGroup
 import net.venipa.stashling.feature.common.BrowseIcons
@@ -48,6 +54,7 @@ fun SettingsScreen(
     // Not rendered until the stored values are in: controls must not animate from defaults to the real values.
     val settings = container.settingsState.collectAsState().value ?: return
     val whisparr by container.secrets.whisparr.collectAsState()
+    val stash by container.secrets.stash.collectAsState()
     val hidden by remember(container) { container.hidden.observe() }.collectAsState(emptyList())
     when (section) {
         SettingsSection.Menu -> {
@@ -61,31 +68,29 @@ fun SettingsScreen(
             val on = stringResource(R.string.settings_on)
             val off = stringResource(R.string.settings_off)
             SettingsPage(stringResource(R.string.settings_title), if (tab) null else onBack) {
+                val store = container.settings
+                val scope = rememberCoroutineScope()
+                SectionHeader(stringResource(R.string.settings_group_connections), Gutter)
                 TonalGroup(Gutter) {
-                    GroupRow(stringResource(R.string.settings_appearance), supporting = theme, icon = StashlingIcons.Palette, onClick = { onOpen(SettingsSection.Appearance) })
+                    GroupRow(stringResource(R.string.onboarding_stashdb), supporting = stash?.baseUrl?.hostOf(), icon = StashlingIcons.Person, onClick = { onOpen(SettingsSection.StashDb) })
                     GroupRow(
-                        stringResource(R.string.settings_privacy),
-                        supporting = stringResource(R.string.settings_privacy_value, if (settings.secureScreen) on else off, if (settings.appLock) on else off),
-                        icon = StashlingIcons.Privacy,
-                        onClick = { onOpen(SettingsSection.Privacy) },
+                        stringResource(R.string.settings_whisparr),
+                        supporting = whisparr?.let {
+                            listOf(
+                                it.baseUrl.hostOf(),
+                                pluralStringResource(R.plurals.settings_whisparr_presets_value, settings.allPresets.size, settings.allPresets.size),
+                                pluralStringResource(R.plurals.settings_whisparr_rules_menu_value, settings.tagRules.size, settings.tagRules.size),
+                            ).joinToString(" · ")
+                        } ?: stringResource(R.string.onboarding_not_connected),
+                        icon = StashlingIcons.Download,
+                        onClick = { onOpen(SettingsSection.Whisparr) },
                     )
-                    GroupRow(
-                        stringResource(R.string.settings_accounts),
-                        supporting = stringResource(if (whisparr != null) R.string.settings_accounts_both else R.string.settings_accounts_stash),
-                        icon = StashlingIcons.Person,
-                        onClick = { onOpen(SettingsSection.Accounts) },
-                    )
-                    if (whisparr != null) {
-                        GroupRow(
-                            stringResource(R.string.settings_whisparr),
-                            supporting = stringResource(R.string.settings_whisparr_menu_value, settings.allPresets.size, settings.tagRules.size),
-                            icon = StashlingIcons.Download,
-                            onClick = { onOpen(SettingsSection.WhisparrDefaults) },
-                        )
-                    }
+                }
+                SectionHeader(stringResource(R.string.settings_group_content), Gutter)
+                TonalGroup(Gutter) {
                     GroupRow(
                         stringResource(R.string.settings_browsing),
-                        supporting = stringResource(settings.performerGender.menuRes()),
+                        supporting = stringResource(R.string.settings_browsing_value, stringResource(settings.performerGender.menuRes()), stringResource(if (settings.sceneListMode == ListMode.CARDS) R.string.browse_layout_cards else R.string.browse_layout_rows)),
                         icon = StashlingIcons.Search,
                         onClick = { onOpen(SettingsSection.Browsing) },
                     )
@@ -95,9 +100,40 @@ fun SettingsScreen(
                         icon = BrowseIcons.VisibilityOff,
                         onClick = { onOpen(SettingsSection.Hidden) },
                     )
-                    GroupRow(stringResource(R.string.settings_storage), supporting = stringResource(R.string.settings_storage_value), icon = StashlingIcons.ClearCache, onClick = { onOpen(SettingsSection.Storage) })
+                }
+                SectionHeader(stringResource(R.string.settings_appearance), Gutter)
+                TonalGroup(Gutter) {
+                    GroupRow(
+                        stringResource(R.string.settings_theme_colour),
+                        supporting = stringResource(R.string.settings_theme_value, theme, stringResource(if (settings.dynamicColor) R.string.settings_dynamic else R.string.settings_default_colour)),
+                        icon = StashlingIcons.Palette,
+                        onClick = { onOpen(SettingsSection.Appearance) },
+                    )
+                    GroupRow(
+                        stringResource(R.string.settings_haptics),
+                        supporting = stringResource(R.string.settings_haptics_body),
+                        icon = StashlingIcons.Vibration,
+                        trailing = { StashSwitch(settings.haptics, { v -> scope.launch { store.update { it.copy(haptics = v) } } }) },
+                        onClick = { scope.launch { store.update { it.copy(haptics = !it.haptics) } } },
+                    )
+                }
+                SectionHeader(stringResource(R.string.settings_group_privacy), Gutter)
+                TonalGroup(Gutter) {
+                    GroupRow(
+                        stringResource(R.string.settings_privacy),
+                        supporting = stringResource(R.string.settings_privacy_value, if (settings.secureScreen) on else off, if (settings.appLock) on else off),
+                        icon = StashlingIcons.Privacy,
+                        onClick = { onOpen(SettingsSection.Privacy) },
+                    )
+                }
+                SectionHeader(stringResource(R.string.settings_group_data), Gutter)
+                TonalGroup(Gutter) {
                     GroupRow(stringResource(R.string.settings_backup), supporting = stringResource(R.string.settings_backup_value), icon = StashlingIcons.Upload, onClick = { onOpen(SettingsSection.Backup) })
-                    GroupRow(stringResource(R.string.settings_about), supporting = stringResource(R.string.settings_about_value, net.venipa.stashling.BuildConfig.VERSION_NAME), icon = StashlingIcons.Info, onClick = { onOpen(SettingsSection.About) })
+                    GroupRow(stringResource(R.string.settings_image_cache), supporting = stringResource(R.string.settings_image_cache_value), icon = StashlingIcons.ClearCache, onClick = { onOpen(SettingsSection.ImageCache) })
+                }
+                SectionHeader(stringResource(R.string.settings_about), Gutter)
+                TonalGroup(Gutter) {
+                    GroupRow(stringResource(R.string.settings_about_title), supporting = stringResource(R.string.settings_about_value, net.venipa.stashling.BuildConfig.VERSION_NAME), icon = StashlingIcons.Info, onClick = { onOpen(SettingsSection.About) })
                 }
             }
         }
@@ -106,15 +142,15 @@ fun SettingsScreen(
 
         SettingsSection.Privacy -> PrivacyPage(settings, onBack)
 
-        SettingsSection.Accounts -> AccountsPage(onBack, onRerun)
+        SettingsSection.StashDb -> AccountsPage(onBack, onRerun)
 
-        SettingsSection.WhisparrDefaults -> WhisparrSettings(onBack, onRerun)
+        SettingsSection.Whisparr -> WhisparrSettings(onBack, onRerun)
 
         SettingsSection.Browsing -> BrowsingPage(settings, hidden.size, onBack, onOpen)
 
         SettingsSection.Hidden -> HiddenPage(hidden, onBack)
 
-        SettingsSection.Storage -> StoragePage(onBack)
+        SettingsSection.ImageCache -> StoragePage(onBack)
 
         SettingsSection.Backup -> BackupPage(onBack)
 
@@ -144,3 +180,6 @@ internal fun SettingsPage(
         snackbarHost = { snackbar?.let { SnackbarHost(it) { d -> AppSnackbar(d) } } },
     ) { padding: PaddingValues -> ScreenColumn(padding, bottom = Space.L + LocalDockInset.current, content = content) }
 }
+
+/** "host:port" of a stored base URL. */
+private fun String.hostOf() = substringAfter("://").substringBefore("/")

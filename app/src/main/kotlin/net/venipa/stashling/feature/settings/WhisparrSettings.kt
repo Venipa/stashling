@@ -236,7 +236,7 @@ private fun ConnectionPage(
     WhisparrAccountGroup(onRerun)
 }
 
-/** Reconnect, ignore certificate errors, disconnect (with confirm). Shared by Accounts and Whisparr → Connection. */
+/** Reconnect, ignore certificate errors, disconnect (with confirm). Whisparr → Connection. */
 @Composable
 internal fun WhisparrAccountGroup(onRerun: (Int) -> Unit) {
     val container = LocalAppContainer.current

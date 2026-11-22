@@ -49,7 +49,7 @@
     <string name="onboarding_signed_in_as">Signed in as %1$s</string>
     <string name="onboarding_connected">Connected</string>
     <string name="onboarding_not_connected">Not connected</string>
-    <string name="onboarding_whisparr_later">You can connect Whisparr any time in Settings, Accounts.</string>
+    <string name="onboarding_whisparr_later">You can connect Whisparr any time in Settings, Whisparr.</string>
     <string name="onboarding_err_url_https">The server address must start with https://</string>
     <string name="onboarding_err_key_empty">Enter the API key.</string>
     <string name="onboarding_err_login_empty">Enter the username and password.</string>
@@ -75,6 +75,13 @@
     <string name="settings_off">off</string>
     <string name="settings_not_set">Not set</string>
     <string name="settings_appearance">Appearance</string>
+    <string name="settings_theme_colour">Theme &amp; colour</string>
+    <string name="settings_theme_value">%1$s · %2$s</string>
+    <string name="settings_default_colour">Stashling violet</string>
+    <string name="settings_group_connections">Connections</string>
+    <string name="settings_group_content">Content</string>
+    <string name="settings_group_privacy">Privacy &amp; security</string>
+    <string name="settings_group_data">Data</string>
     <string name="settings_theme_light">Light</string>
     <string name="settings_theme_dark">Dark</string>
     <string name="settings_theme_system">System</string>
@@ -88,8 +95,8 @@
     <string name="settings_haptics">Haptic feedback</string>
     <string name="settings_haptics_body">Vibration on taps, swipes and menus</string>
     <string name="settings_dynamic_body">Use your wallpaper colours instead of the Stashling violet.</string>
-    <string name="settings_privacy">Privacy</string>
-    <string name="settings_privacy_value">Secure screen %1$s, app lock %2$s</string>
+    <string name="settings_privacy">Screen privacy &amp; app lock</string>
+    <string name="settings_privacy_value">Secure screen %1$s · App lock %2$s</string>
     <string name="settings_secure_screen">Secure screen</string>
     <string name="settings_secure_screen_body">Blocks screenshots and blanks the app in recent apps.</string>
     <string name="settings_app_lock">App lock</string>
@@ -104,9 +111,6 @@
     <string name="settings_lock_unlock">Unlock</string>
     <string name="settings_lock_failed">Not unlocked. Try again.</string>
     <string name="settings_lock_unavailable">Set a screen lock or a fingerprint on this device first.</string>
-    <string name="settings_accounts">Accounts</string>
-    <string name="settings_accounts_stash">StashDB</string>
-    <string name="settings_accounts_both">StashDB and Whisparr</string>
     <string name="settings_sign_in_again">Sign in again</string>
     <string name="settings_connect_whisparr">Connect Whisparr</string>
     <string name="settings_reconnect">Reconnect</string>
@@ -131,12 +135,13 @@
     <string name="settings_search_on_add">Search on add</string>
     <string name="settings_search_on_add_body">Start searching right after adding a scene.</string>
     <string name="settings_picker_empty">Nothing to choose from.</string>
-    <string name="settings_storage">Storage</string>
-    <string name="settings_storage_value">Image cache</string>
+    <string name="settings_image_cache">Image cache</string>
+    <string name="settings_image_cache_value">Clear cached images</string>
     <string name="settings_clear_cache">Clear image cache</string>
     <string name="settings_cache_body">Images are downloaded again when needed.</string>
     <string name="settings_cache_cleared">Image cache cleared</string>
     <string name="settings_about">About</string>
+    <string name="settings_about_title">About Stashling</string>
     <string name="settings_about_value">Version %1$s</string>
     <string name="settings_about_version">Version %1$s</string>
     <string name="settings_licence">Licence</string>
@@ -151,7 +156,7 @@
     <string name="home_region_jav">JAV</string>
     <string name="home_region_western">Western</string>
     <!-- Backup -->
-    <string name="settings_backup">Backup</string>
+    <string name="settings_backup">Backup &amp; restore</string>
     <string name="settings_backup_value">Export or import a file</string>
     <string name="backup_export">Export backup</string>
     <string name="backup_export_body">Settings, bookmarks, hidden items, Whisparr presets and rules, as a JSON file.</string>

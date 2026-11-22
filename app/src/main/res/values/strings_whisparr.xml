@@ -52,7 +52,14 @@
     <string name="whisparr_preset_chosen">Chosen for this add</string>
     <string name="whisparr_preset_sheet_title">Preset for this add</string>
     <string name="settings_whisparr">Whisparr</string>
-    <string name="settings_whisparr_menu_value">Presets %1$d · Rules %2$d</string>
+    <plurals name="settings_whisparr_presets_value">
+        <item quantity="one">%1$d preset</item>
+        <item quantity="other">%1$d presets</item>
+    </plurals>
+    <plurals name="settings_whisparr_rules_menu_value">
+        <item quantity="one">%1$d rule</item>
+        <item quantity="other">%1$d rules</item>
+    </plurals>
     <string name="settings_whisparr_connection">Connection</string>
     <string name="settings_whisparr_presets">Presets</string>
     <string name="settings_whisparr_rules">Rules</string>

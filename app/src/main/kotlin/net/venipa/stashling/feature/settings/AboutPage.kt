@@ -64,7 +64,7 @@ internal fun AboutPage(onBack: () -> Unit) {
         }
     }
     val notConnected = stringResource(R.string.about_not_connected)
-    SettingsPage(stringResource(R.string.settings_about), onBack) {
+    SettingsPage(stringResource(R.string.settings_about_title), onBack) {
         TonalCard(Gutter, hero = true, contentPadding = PaddingValues(20.dp, 20.dp, 20.dp, 24.dp)) {
             // Decorative: the name sits right under it. Both adaptive layers, clipped like a launcher icon.
             Box(Modifier.align(Alignment.CenterHorizontally).padding(top = 4.dp, bottom = 8.dp).size(96.dp).clip(RoundedCornerShape(28.dp))) {

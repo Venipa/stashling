@@ -178,6 +178,7 @@
         <item quantity="other">Hide %1$d performers</item>
     </plurals>
     <string name="settings_browsing">Browsing &amp; search</string>
+    <string name="settings_browsing_value">%1$s · %2$s</string>
     <string name="settings_browsing_female">Female performers</string>
     <string name="settings_browsing_male">Male performers</string>
     <string name="settings_browsing_both">All performers</string>

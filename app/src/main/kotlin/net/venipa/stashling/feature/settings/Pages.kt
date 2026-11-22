@@ -65,7 +65,7 @@ internal fun AppearancePage(
     val segAnchor = rememberRevealAnchor()
     val oledAnchor = rememberRevealAnchor()
     val dynAnchor = rememberRevealAnchor()
-    SettingsPage(stringResource(R.string.settings_appearance), onBack) {
+    SettingsPage(stringResource(R.string.settings_theme_colour), onBack) {
         StashSegmented(
             listOf(R.string.settings_theme_light, R.string.settings_theme_dark, R.string.settings_theme_system).map { stringResource(it) },
             themes.indexOf(settings.theme),
@@ -88,12 +88,6 @@ internal fun AppearancePage(
                 supporting = stringResource(R.string.settings_dynamic_body),
                 trailing = { StashSwitch(settings.dynamicColor, { v -> dynAnchor.reveal { scope.launch { store.update { it.copy(dynamicColor = v) } } } }, dynAnchor.modifier) },
                 onClick = { dynAnchor.reveal { scope.launch { store.update { it.copy(dynamicColor = !it.dynamicColor) } } } },
-            )
-            GroupRow(
-                stringResource(R.string.settings_haptics),
-                supporting = stringResource(R.string.settings_haptics_body),
-                trailing = { StashSwitch(settings.haptics, { v -> scope.launch { store.update { it.copy(haptics = v) } } }) },
-                onClick = { scope.launch { store.update { it.copy(haptics = !it.haptics) } } },
             )
         }
     }
@@ -160,14 +154,11 @@ internal fun AccountsPage(
     val scope = rememberCoroutineScope()
     val stash by container.secrets.stash.collectAsState()
     var confirm by remember { mutableStateOf(false) }
-    SettingsPage(stringResource(R.string.settings_accounts), onBack) {
-        SectionHeader(stringResource(R.string.onboarding_stashdb), Gutter)
+    SettingsPage(stringResource(R.string.onboarding_stashdb), onBack) {
         TonalGroup(Gutter) {
             GroupRow(stringResource(R.string.settings_sign_in_again), supporting = stash?.baseUrl, onClick = { onRerun(1) })
             GroupRow(stringResource(R.string.settings_disconnect), supporting = stringResource(R.string.settings_disconnect_stash_body), onClick = { confirm = true })
         }
-        SectionHeader(stringResource(R.string.onboarding_whisparr), Gutter)
-        WhisparrAccountGroup(onRerun)
     }
     if (confirm) {
         ConfirmSheet(
@@ -193,7 +184,7 @@ internal fun StoragePage(onBack: () -> Unit) {
     var size by remember { mutableStateOf<Long?>(null) }
     val cleared = stringResource(R.string.settings_cache_cleared)
     LaunchedEffect(Unit) { size = withContext(Dispatchers.IO) { loader.diskCache?.size } }
-    SettingsPage(stringResource(R.string.settings_storage), onBack, snackbar) {
+    SettingsPage(stringResource(R.string.settings_image_cache), onBack, snackbar) {
         TonalGroup(Gutter) {
             GroupRow(
                 stringResource(R.string.settings_clear_cache),
