@@ -89,6 +89,7 @@ import net.venipa.stashling.feature.detail.StudioDetailScreen
 import net.venipa.stashling.feature.detail.TagDetailScreen
 import net.venipa.stashling.feature.downloads.DownloadsViewModel
 import net.venipa.stashling.feature.gallery.GalleryScreen
+import net.venipa.stashling.feature.home.FavoritePerformersScreen
 import net.venipa.stashling.feature.home.HomeDockControls
 import net.venipa.stashling.feature.home.HomeScreen
 import net.venipa.stashling.feature.library.LibraryScreen
@@ -194,7 +195,8 @@ fun AppNav(
                         predictivePopTransitionSpec = { backEnter(ltr, reduce) togetherWith backExit(ltr, reduce) },
                         entryProvider =
                         entryProvider {
-                            entry<HomeRoute> { HomeScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }) }
+                            entry<HomeRoute> { HomeScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onViewAll = { navigator.push(FavoritePerformersRoute) }) }
+                            entry<FavoritePerformersRoute>(metadata = mapOf(PUSHED to true)) { FavoritePerformersScreen(navigator.pop, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }) }
                             entry<BrowseRoute> { BrowseScreen(onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
                             entry<LibraryRoute> { LibraryScreen(hasDownloads, onOpenScene = { navigator.push(SceneDetailRoute(it)) }, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }) }
                             entry<SceneDetailRoute>(metadata = mapOf(PUSHED to true)) { r -> SceneDetailScreen(r.id, onBack = navigator.pop, onOpenPerformer = { navigator.push(PerformerDetailRoute(it)) }, onOpenStudio = { navigator.push(StudioDetailRoute(it)) }, onOpenTag = { navigator.push(TagDetailRoute(it)) }, onOpenGallery = { i -> navigator.push(GalleryRoute("scene", r.id, i)) }) }

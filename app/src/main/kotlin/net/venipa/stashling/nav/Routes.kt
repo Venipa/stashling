@@ -20,6 +20,9 @@ import kotlinx.serialization.Serializable
 
 @Serializable data class SettingsRoute(val section: SettingsSection = SettingsSection.Menu) : NavKey
 
+/** Home "View all": every StashDB favorite performer. */
+@Serializable data object FavoritePerformersRoute : NavKey
+
 @Serializable data class SceneDetailRoute(val id: String) : NavKey
 
 @Serializable data class PerformerDetailRoute(val id: String) : NavKey

@@ -17,20 +17,22 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.LazyGridState
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.carousel.HorizontalUncontainedCarousel
+import androidx.compose.material3.carousel.rememberCarouselState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -88,7 +90,7 @@ import net.venipa.stashling.feature.browse.SheetColumn
 import net.venipa.stashling.feature.common.FilterButton
 import net.venipa.stashling.feature.common.ListModeSegmented
 import net.venipa.stashling.feature.common.PageLoader
-import net.venipa.stashling.feature.common.PortraitAvatar
+import net.venipa.stashling.feature.common.PosterTile
 import net.venipa.stashling.feature.common.Region
 import net.venipa.stashling.feature.common.SceneSwipeController
 import net.venipa.stashling.feature.common.ScenesGrid
@@ -183,6 +185,7 @@ class HomeViewModel(c: AppContainer) : ViewModel() {
 fun HomeScreen(
     onOpenScene: (String) -> Unit,
     onOpenPerformer: (String) -> Unit,
+    onViewAll: () -> Unit,
 ) {
     val c = LocalAppContainer.current
     val vm = tabViewModel { HomeViewModel(c) }
@@ -208,6 +211,12 @@ fun HomeScreen(
         }
     }
     val top = WindowInsets.statusBars.asPaddingValues().calculateTopPadding()
+    val grid = vm.gridState(tab, effective)
+    // The carousel arrives after the first scenes; the grid keeps the first scene anchored, so show the new header when at the top.
+    val hasFavorites = favorites.isNotEmpty()
+    LaunchedEffect(grid, hasFavorites) {
+        if (hasFavorites && grid.firstVisibleItemIndex == 1 && grid.firstVisibleItemScrollOffset == 0) grid.scrollToItem(0)
+    }
     ScenesGrid(
         state,
         mode,
@@ -216,24 +225,38 @@ fun HomeScreen(
         loader::retry,
         onOpenScene,
         Modifier.background(MaterialTheme.colorScheme.background).nestedScroll(scroll),
-        gridState = vm.gridState(tab, effective),
-        header = if (favorites.isEmpty()) null else ({ fullSpan("favorites") { FavoritesRow(favorites, onOpenPerformer) } }),
+        gridState = grid,
+        header = if (!hasFavorites) null else ({ fullSpan("favorites") { FavoritesRow(favorites, onOpenPerformer, onViewAll) } }),
         onRefresh = vm::refresh,
     )
 }
 
+/** Favorites as an uncontained card carousel (every card full size, so the text below the image is never squeezed) + "View all". */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FavoritesRow(
     performers: List<Performer>,
     onOpen: (String) -> Unit,
+    onViewAll: () -> Unit,
 ) = Column {
-    SectionHeader(stringResource(R.string.browse_fav_performers))
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(Space.S)) {
-        items(performers, key = { it.id }) { p ->
-            val image = p.images.firstOrNull() ?: p.thumbnail
-            val menu = rememberPerformerMenu(PerformerRef(p.id, p.name, p.disambiguation, null, image), MaterialTheme.shapes.medium)
-            PortraitAvatar(p.name, image?.sized(300), { onOpen(p.id) }, menu.modifier, onLongClick = menu.open)
-        }
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        SectionHeader(stringResource(R.string.browse_fav_performers), Modifier.weight(1f))
+        TextButton(onViewAll) { Text(stringResource(R.string.home_view_all)) }
+    }
+    HorizontalUncontainedCarousel(rememberCarouselState { performers.size }, itemWidth = 128.dp, itemSpacing = Space.S) { i ->
+        val p = performers[i]
+        val image = p.images.firstOrNull() ?: p.thumbnail
+        val menu = rememberPerformerMenu(PerformerRef(p.id, p.name, p.disambiguation, null, image), RoundedCornerShape(16.dp))
+        // The card's own clip is the 16 dp tile; the carousel mask only narrows the card at the edge while it scrolls out.
+        PosterTile(
+            p.name,
+            stringResource(R.string.browse_scenes_count, p.sceneCount),
+            image?.sized(300),
+            2f / 3f,
+            { onOpen(p.id) },
+            menu.modifier.maskClip(RoundedCornerShape(16.dp)),
+            onLongClick = menu.open,
+        )
     }
 }
 

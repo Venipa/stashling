@@ -52,6 +52,8 @@
     <string name="browse_date_hint">Date (YYYY-MM-DD)</string>
     <string name="browse_fav_off">Off</string>
     <string name="browse_fav_performers">Favorite performers</string>
+    <string name="home_view_all">View all</string>
+    <string name="home_favorites_empty">No favorite performers yet</string>
     <string name="browse_fav_studios">Favorite studios</string>
     <string name="browse_fav_both">Both</string>
     <string name="browse_scenes_count">%1$d scenes</string>

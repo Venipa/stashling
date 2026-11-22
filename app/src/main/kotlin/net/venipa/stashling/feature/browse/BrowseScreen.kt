@@ -373,7 +373,7 @@ private fun PaddingValues.withRail() = PaddingValues(start = Space.L, top = calc
  * over cached pages, then the list restarts at that page and loads both ways). [letter] is the shown key (English alias for JAV names).
  */
 @Composable
-private fun <T> NameRail(
+internal fun <T> NameRail(
     loader: PageLoader<T>,
     st: PagedState<T>,
     byName: Boolean,

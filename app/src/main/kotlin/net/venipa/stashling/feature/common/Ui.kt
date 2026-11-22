@@ -302,7 +302,10 @@ fun MediaRow(
     }
 }
 
-/** A performer as a small 2:3 portrait tile with the name below (no circles); standalone, so shapes.medium. */
+/**
+ * A performer as a small 2:3 portrait tile with the name below (no circles); standalone, so shapes.medium. The tile's clip
+ * (ripple, lifted menu copy) has the same shape, so the text is inset by [PortraitTextInset] to stay clear of its bottom corners.
+ */
 @Composable
 fun PortraitAvatar(
     name: String,
@@ -312,13 +315,18 @@ fun PortraitAvatar(
     supporting: String? = null,
     onLongClick: (() -> Unit)? = null,
 ) = Column(
-    modifier.width(72.dp).clip(MaterialTheme.shapes.medium).combinedClickable(onLongClick = onLongClick, onClick = onClick),
+    modifier.width(72.dp).clip(MaterialTheme.shapes.medium).combinedClickable(onLongClick = onLongClick, onClick = onClick).padding(bottom = PortraitTextInset),
     verticalArrangement = Arrangement.spacedBy(Space.Xs),
 ) {
     StashImage(imageUrl, Modifier.size(72.dp, 108.dp).clip(MaterialTheme.shapes.medium), name)
-    Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-    supporting?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    Column(Modifier.padding(horizontal = PortraitTextInset)) {
+        Text(name, style = MaterialTheme.typography.labelMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        supporting?.let { Text(it, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+    }
 }
+
+/** A 12 dp corner cuts at most 12·(1 − 1/√2) ≈ 3.5 dp into a text box's corner; 4 dp from both edges keeps it out. */
+val PortraitTextInset = Space.Xs
 
 /** Unauthorized shows "Sign in again" (routes to the StashDB onboarding step, nothing is cleared); other errors show Retry. */
 @Composable

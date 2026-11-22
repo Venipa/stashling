@@ -83,6 +83,7 @@ import net.venipa.stashling.feature.common.EntityActions
 import net.venipa.stashling.feature.common.Load
 import net.venipa.stashling.feature.common.LoadGate
 import net.venipa.stashling.feature.common.PortraitAvatar
+import net.venipa.stashling.feature.common.PortraitTextInset
 import net.venipa.stashling.feature.common.StashImage
 import net.venipa.stashling.feature.common.apiValue
 import net.venipa.stashling.feature.common.formatDuration
@@ -274,7 +275,7 @@ private fun HiddenPerformersTile(
     onClick: () -> Unit,
 ) {
     val shape = MaterialTheme.shapes.medium
-    Column(Modifier.width(72.dp).clip(shape).clickable(onClick = onClick), verticalArrangement = Arrangement.spacedBy(Space.Xs)) {
+    Column(Modifier.width(72.dp).clip(shape).clickable(onClick = onClick).padding(bottom = PortraitTextInset), verticalArrangement = Arrangement.spacedBy(Space.Xs)) {
         Box(Modifier.size(72.dp, 108.dp).clip(shape).background(MaterialTheme.colorScheme.surfaceContainerHigh), contentAlignment = Alignment.Center) {
             StashImage(imageUrl, Modifier.fillMaxSize().blur(16.dp), null)
             Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.scrim.copy(alpha = 0.45f)))
@@ -282,6 +283,7 @@ private fun HiddenPerformersTile(
         }
         Text(
             stringResource(if (expanded) R.string.detail_performers_less else R.string.detail_performers_more, count),
+            Modifier.padding(horizontal = PortraitTextInset),
             style = MaterialTheme.typography.labelMedium,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
