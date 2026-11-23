@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<!-- Share image 1200x630. (default wall; ?v=phones|plain kept as alternatives). Colours: the site's red scheme (app/global.css). -->
+<html><head><meta charset="utf-8"><style>
+html,body{margin:0;width:1200px;height:630px;overflow:hidden;background:#1A1110;color:#F1DFDB;font-family:Inter,"Segoe UI",Roboto,system-ui,sans-serif}
+body{position:relative}
+.glow{position:absolute;border-radius:50%;background:radial-gradient(closest-side,rgba(255,180,168,.28),rgba(115,52,43,.18) 55%,transparent);pointer-events:none}
+.text{position:absolute;left:84px;top:0;bottom:0;width:720px;display:flex;flex-direction:column;justify-content:center;gap:26px;z-index:3}
+.brand{display:flex;align-items:center;gap:18px;font-size:40px;font-weight:700;letter-spacing:-.5px}
+.brand svg{width:76px;height:76px;flex:none}
+h1{margin:0;font-size:62px;line-height:1.02;letter-spacing:-2px;font-weight:800}
+h1 em{font-style:normal;color:#FFB4A8}
+.chips{display:flex;gap:12px;flex-wrap:wrap}
+.chip{padding:10px 20px;border-radius:999px;font-size:22px;font-weight:600;box-shadow:inset 0 0 0 2px rgba(216,194,190,.28);color:#D8C2BE}
+.chip.p{background:#FFB4A8;color:#561E16;box-shadow:none}
+/* phone: outer 44, bezel 8 -> screen 36 (concentric) */
+.ph{position:absolute;padding:8px;border-radius:44px;background:#050303;box-shadow:0 0 0 2px rgba(255,255,255,.08),0 30px 80px rgba(0,0,0,.6)}
+.ph img{display:block;width:100%;border-radius:36px}
+.wall{position:absolute;left:560px;top:-180px;width:900px;display:grid;grid-template-columns:repeat(3,1fr);gap:22px;transform:rotate(-12deg);opacity:.55}
+.wall .ph{position:static;padding:6px;border-radius:32px}.wall .ph img{border-radius:26px}
+.fade{position:absolute;inset:0;background:linear-gradient(90deg,#1A1110 38%,rgba(26,17,16,.85) 52%,rgba(26,17,16,0) 75%);z-index:2}
+.fadeb{position:absolute;left:0;right:0;bottom:0;height:120px;background:linear-gradient(0deg,#1A1110,rgba(26,17,16,0));z-index:2}
+.mark{position:absolute;right:-60px;top:50%;transform:translateY(-50%) rotate(-8deg);width:560px;height:560px;opacity:.16}
+.dots{position:absolute;inset:0;background-image:radial-gradient(rgba(216,194,190,.10) 1.5px,transparent 1.5px);background-size:28px 28px;-webkit-mask-image:radial-gradient(70% 90% at 85% 50%,#000,transparent);mask-image:radial-gradient(70% 90% at 85% 50%,#000,transparent)}
+</style></head><body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="logo" viewBox="0 0 256 256"><rect width="256" height="256" rx="72" fill="#73342B"/><g transform="translate(128 128) scale(.82) translate(-128 -128)" fill="#FFDAD4"><circle cx="86" cy="82" r="24"/><circle cx="170" cy="82" r="24"/><circle cx="128" cy="130" r="62"/><circle cx="106" cy="118" r="9" fill="#561E16"/><circle cx="150" cy="118" r="9" fill="#561E16"/><rect x="104" y="170" width="56" height="44" rx="10" fill="#F5BF4E" transform="rotate(-10 132 192)"/></g></symbol></defs></svg>
+<div id="art"></div>
+<div class="text">
+  <div class="brand"><svg><use href="#logo"/></svg>Stashling</div>
+  <h1>StashDB &amp; Whisparr<br><em>app for Android</em></h1>
+  <div class="chips"><span class="chip p">Free &amp; open source</span><span class="chip">No tracking</span><span class="chip">18+</span></div>
+</div>
+<script>
+const v = new URLSearchParams(location.search).get("v") || "wall";
+const art = document.getElementById("art");
+const shots = ["home", "browse", "performer", "scene-2", "settings", "home", "performer", "browse", "scene-2"];
+if (v === "wall") {
+  art.innerHTML = `<div class="glow" style="width:900px;height:900px;right:-300px;top:-140px"></div><div class="wall">${shots.map((s, i) => `<div class="ph" style="margin-top:${i % 3 === 1 ? 90 : 0}px"><img src="../../public/screens/${s}.webp"></div>`).join("")}</div><div class="fade"></div><div class="fadeb"></div>`;
+} else if (v === "phones") {
+  art.innerHTML = `<div class="glow" style="width:820px;height:820px;right:-200px;top:-100px"></div>
+    <div class="ph" style="width:230px;right:240px;top:170px;transform:rotate(-8deg);opacity:.9"><img src="../../public/screens/browse.webp"></div>
+    <div class="ph" style="width:270px;right:40px;top:90px;transform:rotate(5deg);z-index:2"><img src="../../public/screens/home.webp"></div>`;
+} else {
+  art.innerHTML = `<div class="glow" style="width:900px;height:900px;right:-260px;top:-140px"></div><div class="dots"></div><svg class="mark"><use href="#logo"/></svg>`;
+}
+</script>
+</body></html>

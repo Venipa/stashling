@@ -1,10 +1,50 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { Features } from "@/components/landing/features";
 import { MobileDock, SiteNav } from "@/components/landing/nav";
 import { Wall } from "@/components/landing/wall";
 import { Logo } from "@/components/logo";
 import { getRepoStats } from "@/lib/github";
-import { releasesUrl, repoUrl } from "@/lib/shared";
+import {
+  absolute,
+  appName,
+  gitConfig,
+  ogImage,
+  releasesUrl,
+  repoUrl,
+  siteDescription,
+  siteKeywords,
+} from "@/lib/shared";
+
+export const metadata: Metadata = { alternates: { canonical: absolute("/") } };
+
+/** schema.org SoftwareApplication: lets search engines show it as a free Android app. Only facts the app really has. */
+function structuredData(version: string | null) {
+  return {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: appName,
+    description: siteDescription,
+    url: absolute("/"),
+    image: `${absolute("/")}${ogImage}`,
+    applicationCategory: "MultimediaApplication",
+    operatingSystem: "Android 12+",
+    ...(version ? { softwareVersion: version.replace(/^v/, "") } : {}),
+    downloadUrl: releasesUrl,
+    installUrl: releasesUrl,
+    offers: { "@type": "Offer", price: "0", priceCurrency: "USD" },
+    isAccessibleForFree: true,
+    license: "https://www.gnu.org/licenses/gpl-3.0.html",
+    contentRating: "Adult",
+    keywords: siteKeywords.join(", "),
+    author: {
+      "@type": "Person",
+      name: gitConfig.user,
+      url: `https://github.com/${gitConfig.user}`,
+    },
+    sameAs: [repoUrl],
+  };
+}
 
 function Actions() {
   return (
@@ -38,6 +78,13 @@ export default async function HomePage() {
 
   return (
     <>
+      <script
+        type="application/ld+json"
+        // biome-ignore lint/security/noDangerouslySetInnerHtml: build-time JSON from constants, no user input
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify(structuredData(version)),
+        }}
+      />
       <SiteNav stars={stars} />
       <main id="top" className="flex-1">
         {/* Hero: screen wall behind centred text. */}
@@ -77,7 +124,10 @@ export default async function HomePage() {
       </main>
       <footer className="border-t border-fd-border px-6 pt-6 pb-28 text-sm text-fd-muted-foreground md:pb-6">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3">
-          <span>GPL-3.0 · No Google Play services, no tracking</span>
+          <span>
+            18+ · GPL-3.0 · No Google Play services, no tracking · Not
+            affiliated with StashDB or Whisparr
+          </span>
           <span className="flex gap-4">
             <Link href="/docs" className="hover:text-fd-foreground">
               Docs

@@ -1,16 +1,30 @@
 ---
-title: Introduction
-description: What Stashling is and how to install it.
+title: Getting started
+description: Install Stashling, the free StashDB and Whisparr app for Android, and connect your accounts in a few steps.
 ---
 
-Stashling is an Android app for browsing [StashDB](https://stashdb.org) (stash-box) with local bookmarks, image
-galleries and Whisparr v3 integration. It is a personal / homelab project: no Google Play services, no tracking, no
-billing.
+Stashling is a free, open-source Android app for [StashDB](https://stashdb.org) and other stash-box servers, with
+Whisparr v3 built in. Browse scenes, performers, studios and tags, keep bookmarks on your phone, and send scenes to
+your own Whisparr. No Google Play services, no tracking, no billing. For adults (18+); Stashling is not affiliated
+with StashDB or Whisparr.
 
 ## Install
 
-Download the latest signed APK from [GitHub Releases](https://github.com/Venipa/stashling/releases/latest) and
-install it. Updates must come from the same signing key, so install over the existing app.
+1. Download the latest APK from [GitHub Releases](https://github.com/Venipa/stashling/releases/latest). Stashling
+   needs Android 12 or newer and is not on Google Play.
+2. Open the file and allow your browser or file manager to install apps when Android asks.
+3. Later versions arrive in the app itself: About › Check for updates, or the daily check with a notification.
+
+## Connect StashDB
+
+Paste your StashDB API key, or sign in once with username and password to fetch it. Another stash-box server works
+too: choose **Use a custom server** and enter its HTTPS address. Your key stays on the device.
+
+## Connect Whisparr (optional)
+
+Stashling needs Whisparr v3. Enter its address, for example `192.168.1.5:6969` or `whisparr.example.com`, and pick
+the root folder and quality profile that Add and Search use. A home-network Whisparr with a self-signed certificate
+works with **Advanced › Ignore certificate errors** (Whisparr only).
 
 ## Develop
 
